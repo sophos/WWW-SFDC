@@ -275,7 +275,7 @@ sub getDiskName {
 
 sub getName {
   my $type = shift;
-  return $TYPES{$type}->{name} or LOGDIE "Type $type doesn't have a name!";
+  return $TYPES{$type}->{name} || LOGDIE "Type $type doesn't have a name!";
 }
 
 =method getSubcomponents

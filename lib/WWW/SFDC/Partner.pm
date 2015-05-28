@@ -55,7 +55,7 @@ sub _prepareSObjects {
           (blessed ($obj->{$_}) and blessed ($obj->{$_}) eq 'SOAP::Data')
             ? $obj->{$_}
             : SOAP::Data->name($_ => $obj->{$_})
-        } keys $obj
+        } keys %$obj
       ))
     } @_;
 }
