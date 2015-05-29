@@ -7,7 +7,7 @@ use warnings;
 
 use XML::Parser;
 use Scalar::Util qw(blessed);
-use List::Util qw'first reduce pairmap pairgrep pairfirst';
+use List::Util 1.29 qw'first reduce pairmap pairgrep pairfirst';
 use Data::Dumper;
 use Log::Log4perl ':easy';
 use WWW::SFDC::Constants qw(needsMetaFile hasFolders getEnding getDiskName getName);
