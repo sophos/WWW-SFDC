@@ -7,6 +7,7 @@ use warnings;
 
 use List::Util 'first';
 use Log::Log4perl ':easy';
+use WWW::SFDC::Metadata;
 
 BEGIN {
   use Exporter;
@@ -38,210 +39,23 @@ Set if the type occurs within folders.
 
 =cut
 
-my %TYPES = (
-  applications       => {
-    name => "CustomApplication",
-    ending => ".app",
-  },
-  approvalProcesses  => {
-    name => "ApprovalProcess",
-    ending => ".approvalProcess"
-  },
-  classes            => {
-    name => "ApexClass",
-    ending => ".cls",
-    meta => 1,
-  },
-  components         => {
-    name => "ApexComponent",
-    ending => ".component",
-    meta => 1,
-  },
-  datacategorygroups => {
-    name => "DataCategoryGroup",
-    ending => "UNKNOWN"
-  },
-  documents          => {
-    name => "Document",
-    ending => undef,
-    meta => 1,
-    folders => 1,
-  },
-  email              => {
-    name => "EmailTemplate",
-    ending => ".email",
-    meta => 1,
-    folders => 1,
-  },
-  flows              => {
-    name => "Flow",
-    ending => "UNKNOWN"
-  },
-  groups             => {
-    name => "Group",
-    ending => ".group"
-  },
-  homePageComponents => {
-    name => "HomePageComponent",
-    ending => ".homePageComponent"
-  },
-  homePageLayouts    => {
-    name => "HomePageLayout",
-    ending => ".homePageLayout"
-  },
-  labels             => {
-    name => "CustomLabels",
-    ending => ".labels"
-  },
-  layouts            => {
-    name => "Layout",
-    ending => ".layout"
-  },
-  objects            => {
-    name => "CustomObject",
-    ending => ".object"
-  },
-  pages              => {
-    name => "ApexPage",
-    ending => ".page",
-    meta => 1,
-  },
-  permissionsets     => {
-    name => "PermissionSet",
-    ending => ".permissionset"
-  },
-  portals            => {
-    name => "Portal",
-    ending => ".portal"
-  },
-  profiles           => {
-    name => "Profile",
-    ending => ".profile"
-  },
-  queues             => {
-    name => "Queue",
-    ending => ".queue"
-  },
-  quickActions       => {
-    name => "QuickAction",
-    ending => ".quickAction"
-  },
-  remoteSiteSettings => {
-    name => "RemoteSiteSetting",
-    ending => ".remoteSite"
-  },
-  reportTypes        => {
-    name => "ReportType",
-    ending => ".reportType"
-  },
-  reports            => {
-    name => "Report",
-    ending => ".report",
-    folders => 1,
-  },
-  roles              => {
-    name => "Role",
-    ending => "role"
-  },
-  sites              => {
-    name => "CustomSite",
-    ending => ".site"
-  },
-  settings           => {
-    name => "Settings",
-    ending => ".settings",
-  },
-  sharingRules       => {
-    name => "SharingRules",
-    ending => ".sharingRules"
-  },
-  staticresources    => {
-    name => "StaticResource",
-    ending => ".resource",
-    meta => 1,
-  },
-  tabs               => {
-    name => "CustomTab",
-    ending => ".tab"
-  },
-  translations       => {
-    name => "Translations",
-    ending => ".translation",
-  },
-  triggers           => {
-    name => "ApexTrigger",
-    ending => ".trigger",
-    meta => 1,
-  },
-  weblinks           => {
-    name => "CustomPageWebLink",
-    ending => ".weblink"
-  },
-  workflows          => {
-    name => "Workflow",
-    ending => ".workflow"
-  },
-  #subcomponents
-  actionOverrides    => {
-    name => "ActionOverride",
-    subcomponent => 1
-  },
-  alerts             => {
-    name => "WorkflowAlert",
-    subcomponent => 1
-  },
-  businessProcesses  => {
-    name => "BusinessProcess",
-    subcomponent => 1
-  },
-  fieldSets          => {
-    name => "FieldSet",
-    subcomponent => 1
-  },
-  fieldUpdates       => {
-    name => "WorkflowFieldUpdate",
-    subcomponent => 1
-  },
-  fields             => {
-    name => "CustomField",
-    subcomponent => 1
-  },
-  listViews          => {
-    name => "ListView",
-    subcomponent => 1
-  },
-  outboundMessages   => {
-    name => "WorkflowOutboundMessage",
-    subcomponent => 1
-  },
-  recordTypes        => {
-    name => "RecordType",
-    subcomponent => 1
-  },
-  rules              => {
-    name => "WorkflowRule",
-    subcomponent => 1
-  },
-  tasks              => {
-    name => "WorkflowTask",
-    subcomponent => 1
-  },
-  validationRules    => {
-    name => "ValidationRule",
-    subcomponent => 1
-  },
-  webLinks           => {
-    name => "WebLink",
-    subcomponent => 1
-  },
-);
+my @subcomponents;
+
+my %TYPES = map {
+  @subcomponents += @{$_->{childXmlNames}} if exists $_->{childXmlNames};
+  $_->{directoryName} => $_;
+} WWW::SFDC::Metadata->instance->describeMetadata(
+  WWW::SFDC::SessionManager->instance->apiVersion
+)
 
 =method needsMetaFile
 
 =cut
 
 sub needsMetaFile {
-  return $TYPES{+shift}->{meta};
+  return $TYPES{$_[0]} && exists $TYPES{$_[0]}->{metaFile}
+    ? $TYPES{$_[0]}->{metaFile} eq 'true'
+    : LOGDIE "$_[0] is not a recognised type";
 }
 
 =method hasFolders
@@ -249,7 +63,9 @@ sub needsMetaFile {
 =cut
 
 sub hasFolders {
-  return $TYPES{+shift}->{folders};
+  return $TYPES{$_[0]} && exists $TYPES{$_[0]}->{inFolder}
+    ? $TYPES{$_[0]}->{inFolder} eq 'true'
+    : LOGDIE "$_[0] is not a recognised type";
 }
 
 =method getEnding
@@ -257,7 +73,10 @@ sub hasFolders {
 =cut
 
 sub getEnding {
-  return $TYPES{+shift}->{ending};
+  LOGDIE "$_[0] is not a recognised type" unless $TYPES{$_[0]};
+  return $TYPES{$_[0]}->{suffix}
+    ? ".".$TYPES{$_[0]}->{suffix}
+    : undef;
 }
 
 =method getDiskName
@@ -266,7 +85,7 @@ sub getEnding {
 
 sub getDiskName {
   my $query = shift;
-  return first {$TYPES{$_}->{name} eq $query} keys %TYPES;
+  return first {$TYPES{$_}->{xmlName} eq $query} keys %TYPES;
 }
 
 =method getName
@@ -275,7 +94,9 @@ sub getDiskName {
 
 sub getName {
   my $type = shift;
-  return $TYPES{$type}->{name} || LOGDIE "Type $type doesn't have a name!";
+  return $_[0] if grep {/$_[0]/} @subcomponents;
+  LOGDIE "$_[0] is not a recognised type" unless $TYPES{$_[0]};
+  return $TYPES{$_[0]}->{xmlName};
 }
 
 =method getSubcomponents
@@ -283,5 +104,5 @@ sub getName {
 =cut
 
 sub getSubcomponents {
-  return grep {$TYPES{$_}->{subcomponent}} keys %TYPES;
+  return @subcomponents;
 }

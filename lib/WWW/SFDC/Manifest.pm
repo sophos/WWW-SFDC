@@ -51,6 +51,10 @@ sub _splitLine {
   $line =~ s/.*src\///;
   $line =~ s/[\n\r]//g;
 
+  # SFDC API is case-insensitive, Windows files are case-insensitive. Therefore, making
+  # comparisons case-insensitive is sensible.
+  $line = lc $line;
+
   my %result = ("extension" => "");
 
   ($result{"type"}) = $line =~ /^(\w+)\//

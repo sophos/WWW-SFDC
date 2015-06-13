@@ -8,13 +8,8 @@ use 5.12.0;
 sub import {
   my $class = shift;
 
-  @_ = qw(Apex Constants Manifest Metadata Partner SessionManager Tooling Zip)
-    unless @_;
-
-  for (@_) {
-    my $module = "WWW/SFDC/$_.pm";
-    require $module;
-  }
+  require "WWW/SFDC/$_.pm" ## no critic
+    for @_ || qw'Apex Constants Manifest Metadata Partner SessionManager Tooling Zip'
 
 }
 

@@ -17,6 +17,15 @@ with 'MooX::Singleton';
 
 $SOAP::Transport::HTTP::Client::USERAGENT_CLASS = "AnyEvent::HTTP::LWP::UserAgent" if is_loaded "AnyEvent::HTTP::LWP::UserAgent";
 
+#$SOAP::Transport::HTTP::Client::USERAGENT_CLASS
+
+use IO::Socket::SSL;
+$IO::Socket::SSL::DEBUG = 3;
+
+#use Carp;$Carp::MaxArgLen = 200;
+
+$SOAP::Constants::PATCH_HTTP_KEEPALIVE=1;
+
 =head1 SYNOPSIS
 
     my $sessionId = WWW::SFDC::Login->instance({
@@ -55,9 +64,10 @@ sub _login {
 
   INFO "Logging in...\t";
 
-  $SOAP::Constants::PATCH_HTTP_KEEPALIVE=1;
   my $request = SOAP::Lite
-    ->proxy($self->url()."/services/Soap/u/".$self->apiVersion())
+    ->proxy(
+      $self->url()."/services/Soap/u/".$self->apiVersion()
+    )
     ->readable(1)
     ->ns("urn:partner.soap.sforce.com","urn")
     ->call(
@@ -82,7 +92,7 @@ sub _doCall {
   INFO "Starting $stuff[0] request";
 
   return SOAP::Lite
-    ->proxy($URL, timeout => 300)
+    ->proxy($URL)
     ->readable(1)
     ->default_ns($NS)
     ->call(
