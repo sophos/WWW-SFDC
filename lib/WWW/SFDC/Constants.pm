@@ -7,13 +7,9 @@ use warnings;
 
 use List::Util 'first';
 use Log::Log4perl ':easy';
-use WWW::SFDC::Metadata;
 
-BEGIN {
-  use Exporter;
-  our @ISA = qw(Exporter);
-  our @EXPORT_OK = qw(needsMetaFile hasFolders getEnding getDiskName getName getSubcomponents);
-}
+use Moo;
+with "WWW::SFDC::Role::SessionConsumer";
 
 =head1 Metadata Types
 
@@ -39,23 +35,51 @@ Set if the type occurs within folders.
 
 =cut
 
-my @subcomponents;
+has 'uri',
+  is => 'ro',
+  default => "urn:partner.soap.sforce.com";
 
-my %TYPES = map {
-  @subcomponents += @{$_->{childXmlNames}} if exists $_->{childXmlNames};
-  $_->{directoryName} => $_;
-} WWW::SFDC::Metadata->instance->describeMetadata(
-  WWW::SFDC::SessionManager->instance->apiVersion
-)
+sub _extractURL { return $_[1]->{serverUrl} }
+
+has 'TYPES',
+  is => 'ro',
+  lazy => 1,
+  default => sub {
+    my $self = shift;
+    use Data::Dumper;
+    my ($describe) = $self->session->Metadata->describeMetadata(
+          $self->session->apiVersion
+    );
+    +{
+      map {
+        $_->{directoryName} => $_;
+      } @{$describe->{metadataObjects}}
+    }
+  };
+
+has 'subcomponents',
+  is => 'ro',
+  lazy => 1,
+  default => sub {
+    my $self = shift;
+    [map {
+      exists $_->{childXmlNames}
+        ? ref $_->{childXmlNames} eq 'ARRAY'
+          ?  @{$_->{childXmlNames}}
+          : $_->{childXmlNames}
+        : ()
+    } values $self->TYPES];
+  };
 
 =method needsMetaFile
 
 =cut
 
 sub needsMetaFile {
-  return $TYPES{$_[0]} && exists $TYPES{$_[0]}->{metaFile}
-    ? $TYPES{$_[0]}->{metaFile} eq 'true'
-    : LOGDIE "$_[0] is not a recognised type";
+  my ($self, $type) = shift;
+  return $self->TYPES->{$type} && exists $self->TYPES->{$type}->{metaFile}
+    ? $self->TYPES->{$type}->{metaFile} eq 'true'
+    : LOGDIE "$type is not a recognised type";
 }
 
 =method hasFolders
@@ -63,9 +87,10 @@ sub needsMetaFile {
 =cut
 
 sub hasFolders {
-  return $TYPES{$_[0]} && exists $TYPES{$_[0]}->{inFolder}
-    ? $TYPES{$_[0]}->{inFolder} eq 'true'
-    : LOGDIE "$_[0] is not a recognised type";
+  my ($self, $type) = @_;
+  return $self->TYPES->{$type} && exists $self->TYPES->{$type}->{inFolder}
+    ? $self->TYPES->{$type}->{inFolder} eq 'true'
+    : LOGDIE "$type is not a recognised type";
 }
 
 =method getEnding
@@ -73,9 +98,10 @@ sub hasFolders {
 =cut
 
 sub getEnding {
-  LOGDIE "$_[0] is not a recognised type" unless $TYPES{$_[0]};
-  return $TYPES{$_[0]}->{suffix}
-    ? ".".$TYPES{$_[0]}->{suffix}
+  my ($self, $type) = @_;
+  LOGDIE "$type is not a recognised type" unless $self->TYPES->{$type};
+  return $self->TYPES->{$type}->{suffix}
+    ? ".".$self->TYPES->{$type}->{suffix}
     : undef;
 }
 
@@ -84,8 +110,8 @@ sub getEnding {
 =cut
 
 sub getDiskName {
-  my $query = shift;
-  return first {$TYPES{$_}->{xmlName} eq $query} keys %TYPES;
+  my ($self, $query) = @_;
+  return first {$self->TYPES->{$_}->{xmlName} eq $query} keys %{$self->TYPES};
 }
 
 =method getName
@@ -93,10 +119,10 @@ sub getDiskName {
 =cut
 
 sub getName {
-  my $type = shift;
-  return $_[0] if grep {/$_[0]/} @subcomponents;
-  LOGDIE "$_[0] is not a recognised type" unless $TYPES{$_[0]};
-  return $TYPES{$_[0]}->{xmlName};
+  my ($self, $type) = @_;
+  return $type if grep {/$type/} @{$self->subcomponents};
+  LOGDIE "$type is not a recognised type" unless $self->TYPES->{$type};
+  return $self->TYPES->{$type}->{xmlName};
 }
 
 =method getSubcomponents
@@ -104,5 +130,8 @@ sub getName {
 =cut
 
 sub getSubcomponents {
-  return @subcomponents;
+  my $self = shift;
+  return @{$self->subcomponents};
 }
+
+1;

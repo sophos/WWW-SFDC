@@ -5,12 +5,120 @@ use strict;
 use warnings;
 use 5.12.0;
 
-sub import {
-  my $class = shift;
+use Data::Dumper;
+use Log::Log4perl ':easy';
 
-  require "WWW/SFDC/$_.pm" ## no critic
-    for @_ || qw'Apex Constants Manifest Metadata Partner SessionManager Tooling Zip'
+use Moo;
 
+has 'username',
+  is => 'ro',
+  required => 1;
+
+has 'password',
+  is => 'ro',
+  required => 1;
+
+has 'url',
+  is => 'ro',
+  default => "https://test.salesforce.com",
+  isa => sub { $_[0] and $_[0] =~ s/\/$// or 1; }; #remove trailing slash
+
+has 'apiVersion',
+  is => 'ro',
+  isa => sub { LOGDIE "The API version must be >= 31" unless $_[0] and $_[0] >= 31},
+  default => '33.0';
+
+has 'pollInterval',
+  is => 'rw',
+  default => 15;
+
+has 'loginResult',
+  is => 'rw',
+  lazy => 1,
+  builder => '_login';
+
+for my $module (qw'
+  Apex Constants Metadata Partner Tooling
+'){
+  has $module,
+    is => 'ro',
+    lazy => 1,
+    default => sub {
+      my $self = shift;
+      require "WWW/SFDC/$module.pm";
+      "WWW::SFDC::$module"->new(session => $self);
+    };
+}
+
+sub _login {
+  my $self = shift;
+
+  INFO "Logging in...\t";
+
+  my $request = SOAP::Lite
+    ->proxy(
+      $self->url()."/services/Soap/u/".$self->apiVersion()
+    )
+    ->readable(1)
+    ->ns("urn:partner.soap.sforce.com","urn")
+    ->call(
+      'login',
+      SOAP::Data->name("username")->value($self->username()),
+      SOAP::Data->name("password")->value($self->password())
+     );
+
+  TRACE "Request: " . Dumper $request;
+  LOGDIE "Login Failed: ".$request->faultstring if $request->fault;
+  return $request->result();
+}
+
+=method call
+
+=cut
+
+sub _doCall {
+  my $self = shift;
+  my ($URL, $NS, @stuff) = @_;
+
+  INFO "Starting $stuff[0] request";
+
+  return SOAP::Lite
+    ->proxy($URL)
+    ->readable(1)
+    ->default_ns($NS)
+    ->call(
+      @stuff,
+      SOAP::Header->name("SessionHeader" => {
+        "sessionId" => $self->loginResult()->{"sessionId"}
+      })->uri($NS)
+     );
+}
+
+sub call {
+  my $self = shift;
+  my $req = $self->_doCall(@_);
+
+  if ($req->fault && $req->faultstring =~ /INVALID_SESSION_ID/) {
+    $self->loginResult($self->_login());
+    $req = $self->_doCall(@_);
+  }
+
+  TRACE "Operation request " => Dumper $req;
+  LOGDIE "$_[0] Failed: " . $req->faultstring if $req->fault;
+
+  return $req;
+};
+
+=method isSandbox
+
+Returns 1 if the org associated with the given credentials are a sandbox. Use to
+decide whether to sanitise metadata or similar.
+
+=cut
+
+sub isSandbox {
+  my $self = shift;
+  return $self->loginResult->{sandbox} eq  "true";
 }
 
 1;

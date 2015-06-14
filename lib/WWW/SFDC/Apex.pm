@@ -7,11 +7,10 @@ use strict;
 use warnings;
 
 use Log::Log4perl ':easy';
-use WWW::SFDC::SessionManager;
 use SOAP::Lite;
 
 use Moo;
-with "MooX::Singleton", "WWW::SFDC::Role::Session";
+with "WWW::SFDC::Role::SessionConsumer";
 
 has 'uri',
     is => 'ro',

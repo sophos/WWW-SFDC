@@ -10,29 +10,28 @@ use Scalar::Util qw(blessed);
 use List::Util 1.29 qw'first reduce pairmap pairgrep pairfirst';
 use Data::Dumper;
 use Log::Log4perl ':easy';
-use WWW::SFDC::Constants qw(needsMetaFile hasFolders getEnding getDiskName getName);
 
 use Moo;
 
+has 'constants', is => 'ro', required => 1;
 has 'manifest', is => 'rw', default => sub { {} };
 has 'isDeletion', is => 'ro';
-has 'srcDir', is => 'rw', default => 'src';
-has 'apiVersion', is => 'rw', default => 33;
+has 'apiVersion', is => 'rw', default => '34';
 
 =head1 SYNOPSIS
 
 This module is used to read SFDC manifests from disk, add files to them,
 and get a structure suitable for passing into WWW::SFDC::Metadata functions.
 
-   my $Manifest = WWW::SFDC::Manifest
-        ->new()
+    my $SFDC = WWW::SFDC->new(...);
+    my $Manifest = WWW::SFDC::Manifest
+        ->new(constants => $SFDC->Constants)
         ->readFromFile("filename")
-        ->add(
-            WWW::SFDC::Manifest->new()->readFromFile("anotherFile")
-        )->add({Document => ["bar/foo.png"]});
+        ->addList()
+        ->add({Document => ["bar/foo.png"]});
 
-   my $HashRef = $Manifest->manifest();
-   my $XMLString = $Manifest->getXML();
+    my $HashRef = $Manifest->manifest();
+    my $XMLString = $Manifest->getXML();
 
 =cut
 
@@ -51,10 +50,6 @@ sub _splitLine {
   $line =~ s/.*src\///;
   $line =~ s/[\n\r]//g;
 
-  # SFDC API is case-insensitive, Windows files are case-insensitive. Therefore, making
-  # comparisons case-insensitive is sensible.
-  $line = lc $line;
-
   my %result = ("extension" => "");
 
   ($result{"type"}) = $line =~ /^(\w+)\//
@@ -62,7 +57,7 @@ sub _splitLine {
   $result{"folder"} = $1
     if $line =~ /\/(\w+)\//;
 
-  my $extension = getEnding($result{"type"});
+  my $extension = $self->constants->getEnding($result{"type"});
 
   if ($line =~ /\/(\w+)-meta.xml/) {
     $result{"name"} = $1
@@ -102,11 +97,11 @@ sub _getFilesForLine {
     ?(
       "$split{folder}-meta.xml",
       "$split{folder}/$split{name}$split{extension}",
-      (needsMetaFile($split{"type"}) ? "$split{folder}/$split{name}$split{extension}-meta.xml" : ())
+      ($self->constants->needsMetaFile($split{"type"}) ? "$split{folder}/$split{name}$split{extension}-meta.xml" : ())
      )
     :(
       "$split{name}$split{extension}",
-      (needsMetaFile($split{"type"}) ? "$split{name}$split{extension}-meta.xml" : ())
+      ($self->constants->needsMetaFile($split{"type"}) ? "$split{name}$split{extension}-meta.xml" : ())
      )
    )
 }
@@ -139,14 +134,14 @@ sub getFileList {
   my $self = shift;
 
   return map {
-    my $type = getDiskName($_);
-    my $ending = getEnding($type) || "";
+    my $type = $self->constants->getDiskName($_);
+    my $ending = $self->constants->getEnding($type) || "";
 
     map {
-      if (hasFolders($type) and $_ !~ /\//) {
+      if ($self->constants->hasFolders($type) and $_ !~ /\//) {
         "$type/$_-meta.xml";
       } else {
-	      "$type/$_$ending", (needsMetaFile($type) ? "$type/$_$ending-meta.xml" : () );
+	      "$type/$_$ending", ($self->constants->needsMetaFile($type) ? "$type/$_$ending-meta.xml" : () );
       }
     } @{ $self->manifest->{$_} }
   } keys %{$self->manifest};
@@ -180,9 +175,9 @@ sub addList {
   my $self = shift;
 
   return reduce {$a->add($b)} $self, map {
-    DEBUG "Adding $_ to manifest";
+    TRACE "Adding $_ to manifest";
     +{
-      getName($$_{type}) => [
+      $self->constants->getName($$_{type}) => [
         defined $$_{folder}
           ? (
               ($self->isDeletion ? () : $$_{folder}),

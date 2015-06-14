@@ -1,4 +1,4 @@
-package WWW::SFDC::Role::Session;
+package WWW::SFDC::Role::SessionConsumer;
 # ABSTRACT: Provides a transparent interface to WWW::SFDC::SessionManager
 
 use 5.12.0;
@@ -7,8 +7,6 @@ use warnings;
 
 use Moo::Role;
 use Module::Loaded;
-
-use WWW::SFDC::SessionManager;
 
 =head1 SYNOPSIS
 
@@ -28,7 +26,7 @@ use WWW::SFDC::SessionManager;
     has 'uri', is => 'ro', default => 'urn:partner.soap.salesforce.com';
 
     sub doSomething {
-      my $self = shift;
+      my $self = shift;€
       # this uses the above-defined uri and url, and generates
       # a new sessionId upon an INVALID_SESSION_ID error:
       return $self->_call('method', @_);
@@ -40,27 +38,27 @@ use WWW::SFDC::SessionManager;
 
 requires qw'_extractURL';
 
-has 'creds',
+has 'session',
   is => 'ro',
-  trigger => sub {WWW::SFDC::SessionManager->instance(shift->creds())};
+  required => 1;
 
 has 'url',
   is => 'ro',
   lazy => 1,
   builder => '_buildURL';
 
-has 'pollInterval',
-  is => 'rw',
-  default => 15;
-
 sub _buildURL {
   my $self = shift;
-  return $self->_extractURL(WWW::SFDC::SessionManager->instance()->loginResult());
+  return $self->_extractURL($self->session->loginResult());
 }
 
 sub _call {
   my $self = shift;
-  my $req = WWW::SFDC::SessionManager->instance()->call($self->url(), $self->uri(), @_);
+  my $req = $self->session->call(
+    $self->url(),
+    $self->uri(), 
+    @_
+  );
 
   return $req->result(),
     (defined $req->paramsout() ? $req->paramsout() : ()),
@@ -69,7 +67,7 @@ sub _call {
 
 sub _sleep {
   my $self = shift;
-  sleep $self->pollInterval;
+  sleep $self->session->pollInterval;
 }
 
 1;

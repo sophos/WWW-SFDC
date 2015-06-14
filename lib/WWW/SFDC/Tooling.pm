@@ -6,12 +6,10 @@ use strict;
 use warnings;
 
 use Log::Log4perl ':easy';
-use WWW::SFDC::SessionManager;
-
 use Scalar::Util 'blessed';
 
 use Moo;
-with 'MooX::Singleton', 'WWW::SFDC::Role::Session', 'WWW::SFDC::Role::CRUD';
+with 'WWW::SFDC::Role::SessionConsumer', 'WWW::SFDC::Role::CRUD';
 
 =head1 SYNOPSIS
 

@@ -8,18 +8,17 @@ use warnings;
 use Data::Dumper;
 use Log::Log4perl ':easy';
 use SOAP::Lite;
-use WWW::SFDC::SessionManager;
 
 use Moo;
-with "MooX::Singleton", "WWW::SFDC::Role::Session";
+with "WWW::SFDC::Role::SessionConsumer";
 
 =head1 SYNOPSIS
 
- my $client = Sophos::sfdc->instance(creds => {
+ my $client = WWW::SFDC->new(
    username => 'foo',
    password => 'bar',
    url => 'https://login.salesforce.com'
- });
+ )->Metadata;
 
  my $manifest = $client->listMetadata(
    {type => "CustomObject"},
@@ -38,8 +37,6 @@ with "MooX::Singleton", "WWW::SFDC::Role::Session";
 For more in-depth examples, see t/WWW/SFDC/Metadata.t
 
 =cut
-
-has 'apiVersion', is => 'ro', default => 33;
 
 has 'uri',
   is => 'ro',
@@ -115,7 +112,7 @@ sub _startRetrieval {
     SOAP::Data->name(
       retrieveRequest => {
       	# a lower value than 31 means no status is retrieved, causing an error.
-      	apiVersion => $self->apiVersion(),
+      	apiVersion => $self->session->apiVersion(),
       	unpackaged => \SOAP::Data->value(@queryData)
       })
    ) )[0]->{id};
@@ -191,7 +188,11 @@ sub deployMetadata {
   my ($result) = $self->_call(
     'deploy',
     SOAP::Data->name( zipfile => $zip),
-    ($deployOptions ? SOAP::Data->name(DeployOptions=>$deployOptions) : ())
+    (
+      $deployOptions
+        ? SOAP::Data->name(DeployOptions=>$deployOptions)
+        : ()
+    )
    );
 
   INFO "Deployment status:\t".$$result{state};
@@ -217,6 +218,15 @@ sub deployRecentValidation {
   return $self->_call(
     'deployRecentValidation',
     SOAP::Data->name(validationID => $id)
+   );
+}
+
+sub describeMetadata {
+  my ($self) = @_;
+
+  return $self->_call(
+    'describeMetadata',
+    SOAP::Data->name(apiVersion => $self->session->apiVersion)
    );
 }
 
