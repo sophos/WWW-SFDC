@@ -25,7 +25,7 @@ has 'url',
 
 has 'apiVersion',
   is => 'ro',
-  isa => sub { LOGDIE "The API version must be >= 31" unless $_[0] and $_[0] >= 31},
+  isa => sub { LOGDIE "The API version ($_[0]) must be >= 31." unless $_[0] and $_[0] >= 31},
   default => '33.0';
 
 has 'pollInterval',
@@ -63,8 +63,8 @@ sub _login {
     ->ns("urn:partner.soap.sforce.com","urn")
     ->call(
       'login',
-      SOAP::Data->name("username")->value($self->username()),
-      SOAP::Data->name("password")->value($self->password())
+      SOAP::Data->name("username")->value($self->username),
+      SOAP::Data->name("password")->value($self->password)
      );
 
   TRACE "Request: " . Dumper $request;
