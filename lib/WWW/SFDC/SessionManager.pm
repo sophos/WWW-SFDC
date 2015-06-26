@@ -50,6 +50,10 @@ has 'loginResult',
   lazy => 1,
   builder => '_login';
 
+has 'attempts',
+  is => 'rw',
+  default => 3;
+
 sub _login {
   my $self = shift;
 
@@ -95,15 +99,27 @@ sub _doCall {
 
 sub call {
   my $self = shift;
-  my $req = $self->_doCall(@_);
+  my $req;
+  my $attempts = $self->attempts;
 
-  if ($req->fault && $req->faultstring =~ /INVALID_SESSION_ID/) {
-    $self->loginResult($self->_login());
-    $req = $self->_doCall(@_);
+  while (
+    $req = $self->_doCall(@_)
+    and $req->fault
+  ) {
+    TRACE "Operation request ". Dumper $req;
+
+    given ($req) {
+      when ($_->faultstring =~ /INVALID_SESSION_ID/) {
+        $self->loginResult($self->_login());
+      }
+      when ($attempts > 0 and $req->faultcode > 499) {
+        $attempts--
+      }
+      default {
+        LOGDIE "$_[0] Failed: " . $req->faultstring
+      }
+    }
   }
-
-  TRACE "Operation request " => Dumper $req;
-  LOGDIE "$_[0] Failed: " . $req->faultstring if $req->fault;
 
   return $req;
 };
