@@ -10,32 +10,36 @@ use Log::Log4perl ':easy';
 
 use Moo;
 
-has 'username',
+has 'apiVersion',
   is => 'ro',
-  required => 1;
+  isa => sub { LOGDIE "The API version ($_[0]) must be >= 31." unless $_[0] and $_[0] >= 31},
+  default => '33.0';
+
+has 'loginResult',
+  is => 'rw',
+  lazy => 1,
+  builder => '_login';
 
 has 'password',
   is => 'ro',
   required => 1;
+
+has 'pollInterval',
+  is => 'rw',
+  default => 15;
+
+has 'attempts',
+  is => 'rw',
+  default => 3;
 
 has 'url',
   is => 'ro',
   default => "https://test.salesforce.com",
   isa => sub { $_[0] and $_[0] =~ s/\/$// or 1; }; #remove trailing slash
 
-has 'apiVersion',
+has 'username',
   is => 'ro',
-  isa => sub { LOGDIE "The API version ($_[0]) must be >= 31." unless $_[0] and $_[0] >= 31},
-  default => '33.0';
-
-has 'pollInterval',
-  is => 'rw',
-  default => 15;
-
-has 'loginResult',
-  is => 'rw',
-  lazy => 1,
-  builder => '_login';
+  required => 1;
 
 for my $module (qw'
   Apex Constants Metadata Partner Tooling
@@ -96,15 +100,23 @@ sub _doCall {
 
 sub call {
   my $self = shift;
-  my $req = $self->_doCall(@_);
+  my $req;
+  my $attempts = $self->attempts;
 
-  if ($req->fault && $req->faultstring =~ /INVALID_SESSION_ID/) {
-    $self->loginResult($self->_login());
-    $req = $self->_doCall(@_);
+  while (
+    $req = $self->_doCall(@_)
+    and $req->fault
+  ) {
+    TRACE "Operation request " => Dumper $req;
+    if ($req->faultstring =~ /INVALID_SESSION_ID/) {
+      $self->loginResult($self->_login());
+    } elsif ($req->faultcode > 499 and $attempts > 0) {
+      $attempts--;
+      sleep $self->pollInterval;
+    } else {
+      LOGDIE "$_[0] Failed: " . $req->faultstring;
+    }
   }
-
-  TRACE "Operation request " => Dumper $req;
-  LOGDIE "$_[0] Failed: " . $req->faultstring if $req->fault;
 
   return $req;
 };
