@@ -108,16 +108,12 @@ sub call {
   ) {
     TRACE "Operation request ". Dumper $req;
 
-    given ($req) {
-      when ($_->faultstring =~ /INVALID_SESSION_ID/) {
+    if ($req->faultstring =~ /INVALID_SESSION_ID/) {
         $self->loginResult($self->_login());
-      }
-      when ($attempts > 0 and $req->faultcode > 499) {
+    } elsif ($attempts > 0 and $req->faultcode > 499) {
         $attempts--
-      }
-      default {
+    } else {
         LOGDIE "$_[0] Failed: " . $req->faultstring
-      }
     }
   }
 
