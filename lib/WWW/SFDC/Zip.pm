@@ -119,8 +119,10 @@ sub makezip {
 
   $baseDir =~ s{(?<![/\\])$}{/};
 
+  chomp @files;
+
   @files = grep {-e $_ && !-d $_}
-    map {$baseDir.$_}
+    map {s/^(?!$baseDir)/$baseDir/r}
     @files;
 
   DEBUG "File list for zipping: " . Dumper \@files;
