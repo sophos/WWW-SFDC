@@ -57,7 +57,9 @@ sub _splitLine {
   $result{"folder"} = $1
     if $line =~ /\/(\w+)\//;
 
-  my $extension = $self->constants->getEnding($result{"type"});
+  my $extension = (grep {$_ eq $result{type}} keys $self->constants->TYPES)
+    ? $self->constants->getEnding($result{"type"})
+    : undef;
 
   if ($line =~ /\/(\w+)-meta.xml/) {
     $result{"name"} = $1

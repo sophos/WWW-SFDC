@@ -50,7 +50,6 @@ has 'TYPES',
   lazy => 1,
   default => sub {
     my $self = shift;
-    use Data::Dumper;
     my ($describe) = $self->session->Metadata->describeMetadata(
           $self->session->apiVersion
     );
