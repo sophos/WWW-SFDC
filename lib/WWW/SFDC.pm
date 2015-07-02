@@ -41,17 +41,19 @@ has 'username',
   is => 'ro',
   required => 1;
 
-for my $module (qw'
-  Apex Constants Metadata Partner Tooling
-'){
-  has $module,
-    is => 'ro',
-    lazy => 1,
-    default => sub {
-      my $self = shift;
-      require "WWW/SFDC/$module.pm";
-      "WWW::SFDC::$module"->new(session => $self);
-    };
+INIT: {
+  for my $module (qw'
+    Apex Constants Metadata Partner Tooling
+  '){
+    has $module,
+      is => 'ro',
+      lazy => 1,
+      default => sub {
+        my $self = shift;
+        require "WWW/SFDC/$module.pm"; ## no critic
+        "WWW::SFDC::$module"->new(session => $self);
+      };
+  }
 }
 
 sub _login {
