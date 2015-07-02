@@ -5,8 +5,16 @@ use warnings;
 use Data::Dumper;
 use Test::More;
 
+use lib 't';
+use setup;
+
 #make sure we can load the library
+use WWW::SFDC::Constants;
 use_ok("WWW::SFDC::Manifest") or BAIL_OUT("Couldn't load WWW::SFDC::Manifest");
+
+ok my $manifest = WWW::SFDC::Manifest->new(
+  constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+);
 
 diag "SECTION _splitLine";
 
@@ -85,7 +93,7 @@ my @splitLineData = ({
   }, "reason" => 'documents meta file should work'
 });
 
-is_deeply WWW::SFDC::Manifest->_splitLine($$_{"input"}),
+is_deeply $manifest->_splitLine($$_{"input"}),
   $$_{"output"},
   $$_{"reason"}
   for @splitLineData;
@@ -117,7 +125,7 @@ my @getFilesForLineData = ({
 });
 
 is_deeply
-  [sort(WWW::SFDC::Manifest->_getFilesForLine($$_{"input"}))],
+  [sort($manifest->_getFilesForLine($$_{"input"}))],
   [sort(@{$$_{"output"}})],
   $$_{"reason"}
   for @getFilesForLineData;
@@ -151,7 +159,13 @@ my @completeFileListData = ({
 });
 
 is_deeply
-  [sort(WWW::SFDC::Manifest->new()->addList(@{ $$_{"input"} })->getFileList())],
+  [
+    sort(
+      WWW::SFDC::Manifest->new(
+        constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+      )->addList(@{ $$_{"input"} })->getFileList()
+    )
+  ],
   [sort(@{ $$_{"output"}})],
   $$_{"reason"}
   for @completeFileListData;
@@ -161,9 +175,10 @@ is_deeply
 diag "SECTION _dedupe";
 
 is_deeply
-  WWW::SFDC::Manifest
-  ->new(manifest=>{"objects" => ["foo","foo","bar"]})
-  ->_dedupe()->manifest,
+  WWW::SFDC::Manifest->new(
+    manifest => {"objects" => ["foo","foo","bar"]},
+    constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+  )->_dedupe()->manifest,
   {
     "objects" => ["bar","foo"]};
 
@@ -202,7 +217,10 @@ my @getComponentsData = ({
 });
 
 is_deeply WWW::SFDC::Manifest
-  ->new(isDeletion=>$$_{isDeletion})
+  ->new(
+    isDeletion=>$$_{isDeletion},
+    constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+  )
   ->addList(@{$$_{inputs}})
   ->manifest,
   $$_{output},
@@ -231,7 +249,11 @@ my @writeXMLdata = ({
 # this test is written thus because the keys of a hash can change around,
 # leading to more than 1 possible valid xml output
 is WWW::SFDC::Manifest
-  ->new(manifest => $$_{input})
+  ->new(
+    manifest => $$_{input},
+    apiVersion => 33,
+    constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+  )
   ->getXML(),
   $$_{output},
   $$_{reason}
@@ -248,19 +270,26 @@ my @addManifestData = ({
 });
 
 is_deeply
-  WWW::SFDC::Manifest->new(manifest=>$$_{input1})->add($$_{input2})->manifest,
+  WWW::SFDC::Manifest->new(
+    manifest=>$$_{input1},
+    constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+  )->add($$_{input2})->manifest,
   $$_{output},
   $$_{reason}
   for @addManifestData;
 
 is_deeply
-  WWW::SFDC::Manifest->new(manifest=>$$_{input1})->add(
-    WWW::SFDC::Manifest->new(manifest=>$$_{input2})
+  WWW::SFDC::Manifest->new(
+    constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES),
+    manifest => $$_{input1})->add(
+      WWW::SFDC::Manifest->new(
+        manifest => $$_{input2},
+        constants => WWW::SFDC::Constants->new(TYPES => $setup::TYPES)
+      )
    )->manifest,
   $$_{output},
   $$_{reason}
   for @addManifestData;
-
 
 TODO: {
   local $TODO = "Manifest file parsing currently untested";

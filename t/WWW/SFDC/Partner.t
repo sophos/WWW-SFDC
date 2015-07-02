@@ -2,28 +2,21 @@ use 5.12.0;
 use strict;
 use warnings;
 use Test::More;
-use Config::Properties;
-use Data::Dumper;
+
+use lib 't';
+use setup;
 
 use_ok 'WWW::SFDC::Partner';
 
-my $options = Config::Properties
-  ->new(file => "t/test.config")
-  ->splitToTree() if -e "t/test.config";
-
-ok my $client = WWW::SFDC::Partner->instance(creds => {
-  username => $options->{username},
-  password => $options->{password},
-  url => $options->{url},
- }), "can create an sfdc client";
-
 SKIP: {
 
-  skip "There aren't any login details", 1 unless -e "t/test.config";
+  my $client = setup::client() or skip $setup::skip, 2;
 
-  ok my @results = $client->query("SELECT Id,Name FROM User WHERE Profile.Name = 'System Administrator'");
+  ok my $partner = $client->Partner;
 
-  diag Dumper @results;
+  ok my @results = $partner->query("SELECT Id,Name FROM User WHERE Profile.Name = 'System Administrator'");
+
+  diag explain @results;
 
 }
 

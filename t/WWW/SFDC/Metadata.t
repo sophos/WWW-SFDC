@@ -3,48 +3,34 @@ use strict;
 use warnings;
 use Test::More;
 use Test::Exception;
-use Config::Properties;
 
-use_ok "WWW::SFDC::Metadata";
+use lib 't';
+use setup;
 
+require_ok 'WWW::SFDC::Metadata';
 
 SKIP: { #only execute if creds provided
 
-  my $options = Config::Properties
-    ->new(file => "t/test.config")
-    ->splitToTree() if -e "t/test.config";
+  my $client = setup::client() or skip $setup::skip, 4;
 
-  skip "No test credentials found in t/test.config", 2
-    unless $options->{username}
-    and $options->{password}
-    and $options->{url};
+  ok my $metadata = $client->Metadata();
 
-  ok my $client = WWW::SFDC::Metadata->instance(creds => {
-    username => $options->{username},
-    password => $options->{password},
-    url => $options->{url},
-   }), "can create an sfdc client";
+  ok my $manifest = $metadata->listMetadata(
+    {type => "CustomObject"},
+    {type => "ApexClass"},
+    {type => "Profile"},
+    {type => "CustomObject"},
+    {type => "Report", folder => "FooReports"}
+   ), "List Metadata"
+     or skip "Can't retrieve or deploy because list failed", 2;
 
- SKIP: {
+  ok my $base64ZipString = $metadata->retrieveMetadata($manifest),
+    "Retrieve Metadata" or skip "Can't deploy because retrieve failed", 1;
 
-    ok my $manifest = $client->listMetadata(
-      {type => "CustomObject"},
-      {type => "ApexClass"},
-      {type => "Profile"},
-      {type => "CustomObject"},
-      {type => "Report", folder => "FooReports"}
-     ), "List Metadata"
-       or skip "Can't retrieve or deploy because list failed", 2;
+  lives_ok {$metadata->deployMetadata($base64ZipString)}
+    "Retrieve Metadata";
 
-    ok my $base64ZipString = $client->retrieveMetadata($manifest),
-      "Retrieve Metadata" or skip "Can't deploy because retrieve failed", 1;
-
-    lives_ok {$client->deployMetadata($base64ZipString)}
-      "Retrieve Metadata";
-  }
-
-
- TODO: {
+  TODO: {
     local $TODO = "test retrieve, deploy and list failures";
 
     ok 0;
