@@ -35,6 +35,10 @@ Set if the type occurs within folders.
 
 =cut
 
+has '+session',
+  is => 'ro',
+  required => 0;
+
 has 'uri',
   is => 'ro',
   default => "urn:partner.soap.sforce.com";
@@ -76,7 +80,7 @@ has 'subcomponents',
 =cut
 
 sub needsMetaFile {
-  my ($self, $type) = shift;
+  my ($self, $type) = @_;
   return $self->TYPES->{$type} && exists $self->TYPES->{$type}->{metaFile}
     ? $self->TYPES->{$type}->{metaFile} eq 'true'
     : LOGDIE "$type is not a recognised type";
