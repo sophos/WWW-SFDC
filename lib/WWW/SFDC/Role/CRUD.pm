@@ -72,20 +72,19 @@ sub _cleanUpSObject {
   return () unless $obj;
   my %copy = %$obj; # strip the class from $obj
   $copy{Id} = $copy{Id}->[0] if ref $copy{Id} eq "ARRAY";
-  for my $key (keys %copy) {
-    given (blessed ($copy{$key})) {
-      when ('sObject') {
-        $copy{$key} = $self->_cleanUpSObject($copy{$key});
-      }
-      when ('QueryResult') {
-        $copy{$key} = [
-          ref $copy{$key}->{records} eq 'ARRAY'
-            ? map {$self->_cleanUpSObject($_)} @{$copy{$key}->{records}}
-            : $self->_cleanUpSObject($copy{$key}->{records})
-        ];
-      }
+
+  while (my ($key, $entry) = each %copy) {
+    if (blessed $entry eq 'sObject') {
+      $copy{$key} = $self->_cleanUpSObject($entry);
+    } elsif (blessed $entry eq 'QueryResult') {
+      $entry = [
+        ref $entry->{records} eq 'ARRAY'
+          ? map {$self->_cleanUpSObject($_)} @{$entry->{records}}
+          : $self->_cleanUpSObject($entry->{records})
+      ];
     }
   }
+
   return \%copy;
 }
 
