@@ -26,7 +26,7 @@ use Module::Loaded;
     has 'uri', is => 'ro', default => 'urn:partner.soap.salesforce.com';
 
     sub doSomething {
-      my $self = shift;€
+      my $self = shift;
       # this uses the above-defined uri and url, and generates
       # a new sessionId upon an INVALID_SESSION_ID error:
       return $self->_call('method', @_);
@@ -56,7 +56,7 @@ sub _call {
   my $self = shift;
   my $req = $self->session->call(
     $self->url(),
-    $self->uri(), 
+    $self->uri(),
     @_
   );
 
