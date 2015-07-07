@@ -5,6 +5,8 @@ use 5.12.0;
 use strict;
 use warnings;
 
+# VERSION
+
 use Data::Dumper;
 use File::Path qw(mkpath);
 use File::Spec::Functions qw(splitpath);

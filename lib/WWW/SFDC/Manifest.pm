@@ -5,6 +5,8 @@ use 5.12.0;
 use strict;
 use warnings;
 
+# VERSION
+
 use XML::Parser;
 use Scalar::Util qw(blessed);
 use List::Util 1.29 qw'first reduce pairmap pairgrep pairfirst';

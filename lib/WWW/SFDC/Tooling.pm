@@ -5,6 +5,8 @@ use 5.12.0;
 use strict;
 use warnings;
 
+# VERSION
+
 use Log::Log4perl ':easy';
 use Scalar::Util 'blessed';
 

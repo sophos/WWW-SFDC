@@ -5,6 +5,8 @@ use strict;
 use warnings;
 use 5.12.0;
 
+# VERSION
+
 use Data::Dumper;
 use Log::Log4perl ':easy';
 
