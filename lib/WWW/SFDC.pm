@@ -137,6 +137,17 @@ sub isSandbox {
 
 1;
 
+package WWW::SFDC::CallException;
+use strict;
+use warnings;
+use Moo;
+with 'WWW::SFDC::Role::Exception';
+
+has 'request',
+  is => 'ro';
+
+1;
+
 __END__
 
 =head1 SYNOPSIS
