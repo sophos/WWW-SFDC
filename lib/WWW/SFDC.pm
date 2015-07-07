@@ -71,10 +71,13 @@ sub _login {
       'login',
       SOAP::Data->name("username")->value($self->username),
       SOAP::Data->name("password")->value($self->password)
-     );
+    );
 
   TRACE "Request: " . Dumper $request;
-  LOGDIE "Login Failed: ".$request->faultstring if $request->fault;
+  WWW::SFDC::CallException->throw(
+    message => "Login failed: " . $request->faultstring,
+    request => $request
+  ) if $request->fault;
   return $request->result();
 }
 
@@ -84,39 +87,53 @@ sub _login {
 
 sub _doCall {
   my $self = shift;
-  my ($URL, $NS, @stuff) = @_;
+  my ($attempts, $URL, $NS, @stuff) = @_;
 
   INFO "Starting $stuff[0] request";
+  if (
+    my $result = eval {
+      SOAP::Lite
+        ->proxy($URL)
+        ->readable(1)
+        ->default_ns($NS)
+        ->call(
+          @stuff,
+          SOAP::Header->name("SessionHeader" => {
+            "sessionId" => $self->loginResult()->{"sessionId"}
+          })->uri($NS)
+        )
+    }
+  ) {
+    return $result;
 
-  return SOAP::Lite
-    ->proxy($URL)
-    ->readable(1)
-    ->default_ns($NS)
-    ->call(
-      @stuff,
-      SOAP::Header->name("SessionHeader" => {
-        "sessionId" => $self->loginResult()->{"sessionId"}
-      })->uri($NS)
-     );
+  } elsif ($attempts--) {
+    INFO "$stuff[0] failed: $@";
+    INFO "Retrying ($attempts attempts remaining)";
+    return $self->_doCall($attempts, $URL, $NS, @stuff);
+
+  } else {
+    WWW::SFDC::CallException->throw(
+      message => "$stuff[0] failed: " . $@
+    );
+  }
 }
 
 sub call {
   my $self = shift;
   my $req;
-  my $attempts = $self->attempts;
 
   while (
-    $req = $self->_doCall(@_)
+    $req = $self->_doCall($self->attempts, @_)
     and $req->fault
   ) {
     TRACE "Operation request " => Dumper $req;
     if ($req->faultstring =~ /INVALID_SESSION_ID/) {
       $self->loginResult($self->_login());
-    } elsif ($req->faultcode > 499 and $attempts > 0) {
-      $attempts--;
-      sleep $self->pollInterval;
     } else {
-      LOGDIE "$_[0] Failed: " . $req->faultstring;
+      WWW::SFDC::CallException->throw(
+        message => "$_[2] failed: " . $req->faultstring,
+        request => $req
+      );
     }
   }
 
