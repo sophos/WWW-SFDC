@@ -11,6 +11,8 @@ use Data::Dumper;
 use Log::Log4perl ':easy';
 use SOAP::Lite;
 
+use WWW::SFDC::Metadata::DeployResult;
+
 use Moo;
 with "WWW::SFDC::Role::SessionConsumer";
 
@@ -166,22 +168,26 @@ guide for a description.
 
 #Check up on an async deployment request. Returns 1 when complete.
 sub _checkDeployment {
-  my ($self, $id) = @_;
+  my ($self, $id, $previous) = @_;
   LOGDIE "No ID was passed in" unless $id;
 
-  my ($result) = $self->_call(
-    'checkDeployStatus',
-    SOAP::Data->name("id" => $id),
-    SOAP::Data->name("includeDetails" => "true")
-   );
+  my $result = WWW::SFDC::Metadata::DeployResult->new(
+    result => $self->_call(
+      'checkDeployStatus',
+      SOAP::Data->name("id" => $id),
+      SOAP::Data->name("includeDetails" => "true")
+    )
+  );
 
-  INFO "Deployment status:\t".$$result{status};
-  return 1 if $$result{status} eq "Succeeded";
-  return if $$result{status} =~ /Queued|Pending|InProgress/;
-  # useful deployment error here please
-  LOGDIE "DEPLOYMENT FAILED: ".Dumper $result->{details}->{componentFailures}
-    if $result->{status} eq "Failed";
-  LOGDIE "Check Deploy had an unexpected result: ".Dumper $result;
+  if (scalar (my @errors = (
+    $result->componentFailuresSince($previous),
+    $result->testFailuresSince($previous)
+  ))) {
+    WARN Dumper \@errors;
+  }
+
+
+  return $result
 }
 
 sub deployMetadata {
@@ -197,13 +203,17 @@ sub deployMetadata {
     )
    );
 
-  INFO "Deployment status:\t".$$result{state};
+  INFO "Deployment ID: $$result{id}";
+
+  my $returnValue;
 
   #do..until guarantees that sleep() executes at least once.
-  do {$self->_sleep()} until $self->_checkDeployment($$result{id});
+  $self->_sleep()
+    until (
+      $returnValue = $self->_checkDeployment($$result{id}, $returnValue)
+    )->complete;
 
-  return $$result{id};
-
+  return $returnValue;
 }
 
 =method deployRecentValidation $id
@@ -217,10 +227,12 @@ sub deployRecentValidation {
 
   chomp $id;
 
-  return $self->_call(
-    'deployRecentValidation',
-    SOAP::Data->name(validationID => $id)
-   );
+  return WWW::SFDC::Metadata::DeployResult->new(
+    result => $self->_call(
+      'deployRecentValidation',
+      SOAP::Data->name(validationID => $id)
+    )
+  );
 }
 
 sub describeMetadata {

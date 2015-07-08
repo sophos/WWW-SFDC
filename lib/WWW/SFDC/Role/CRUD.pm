@@ -73,7 +73,7 @@ sub _cleanUpSObject {
   my ($self, $obj) = @_;
   return () unless $obj;
   my %copy = %$obj; # strip the class from $obj
-  $copy{Id} = $copy{Id}->[0] if ref $copy{Id} eq "ARRAY";
+  $copy{Id} = $copy{Id}->[0] if $copy{Id} and ref $copy{Id} eq "ARRAY";
 
   while (my ($key, $entry) = each %copy) {
     if (blessed $entry eq 'sObject') {
