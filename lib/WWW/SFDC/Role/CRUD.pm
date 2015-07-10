@@ -76,6 +76,7 @@ sub _cleanUpSObject {
   $copy{Id} = $copy{Id}->[0] if $copy{Id} and ref $copy{Id} eq "ARRAY";
 
   while (my ($key, $entry) = each %copy) {
+    next unless blessed $entry;
     if (blessed $entry eq 'sObject') {
       $copy{$key} = $self->_cleanUpSObject($entry);
     } elsif (blessed $entry eq 'QueryResult') {
