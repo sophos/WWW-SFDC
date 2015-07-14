@@ -15,11 +15,11 @@ with 'WWW::SFDC::Role::SessionConsumer', 'WWW::SFDC::Role::CRUD';
 
 =head1 SYNOPSIS
 
-   my $result = SFDC::tooling->instance(creds => {
+   my $result = WWW::SFDC->new(
     username => $USER,
     password => $PASS,
     url => $URL
-   })->executeAnonymous("System.debug(1);");
+   )->Tooling->executeAnonymous("System.debug(1);");
 
 Note that $URL is the _login_ URL, not the Tooling API endpoint URL - which gets calculated internally.
 
@@ -82,7 +82,7 @@ sub describeSObjects {
 
 =method executeAnonymous
 
-    WWW::SFDC::Tooling->instance()->executeAnonymous("system.debug(1);")
+    $client->Tooling->executeAnonymous("system.debug(1);")
 
 =cut
 
@@ -107,7 +107,7 @@ sub executeAnonymous {
 
 =method runTests
 
-  SFDC::Tooling->instance()->runTests('name','name2');
+  $client->Tooling->runTests('name','name2');
 
 =cut
 

@@ -17,13 +17,15 @@ with "WWW::SFDC::Role::SessionConsumer", "WWW::SFDC::Role::CRUD";
 
 =head1 SYNOPSIS
 
-    my @objects = WWW::SFDC::Partner->instance(creds => {
+    my $client =  WWW::SFDC->new(
         username => "foo",
         password => "bar",
         url      => "url",
-    })->query("SELECT field, ID FROM Object__c WHERE conditions");
+    );
 
-    WWW::SFDC::Partner->instance()->update(
+    my @objects = $client->Partner->query("SELECT field, ID FROM Object__c WHERE conditions");
+
+    $client->update(
         map { $_->{field} =~ s/baz/bat/ } @objects
     );
 
@@ -63,7 +65,7 @@ sub _prepareSObjects {
 
 =method setPassword
 
-    WWW::SFDC::Partner->instance()->setPassword(Id=>$ID, Password=$newPassword);
+   $client->Partner->setPassword(Id => $ID, Password => $newPassword);
 
 =cut
 

@@ -13,30 +13,6 @@ use Log::Log4perl ':easy';
 use Moo;
 with "WWW::SFDC::Role::SessionConsumer";
 
-=head1 Metadata Types
-
-=head2 ending
-
-Stores the file ending for the metadata type, if there is one.
-
-NB that two of these values are UNKNOWN because I don't know what the value is.
-
-=head2 name
-
-Stores the metadata API name corresponding to the folder name on disk. For instance, the
-metadata name corresponding to the applications/ folder is CustomApplication, but the name
-corresponding to flows/ is Flow.
-
-=head2 meta
-
-Set if the component has associated -meta.xml files (nb not counting folder xml files).
-
-=head2 folders
-
-Set if the type occurs within folders.
-
-=cut
-
 has '+session',
   is => 'ro',
   required => 0;

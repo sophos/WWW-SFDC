@@ -175,21 +175,31 @@ WWW::SFDC provides a set of packages which you can use to build useful
 interactions with Salesforce.com's many APIs. Initially it was intended
 for the construction of powerful and flexible deployment tools.
 
-    use WWW::SFDC; # Import everything
+    use WWW::SFDC;
 
-    use WWW::SFDC::Tooling; # Just the tooling API interface
+    my $session = WWW::SFDC->new(
+      username => $username,
+      password => $password,
+      url => url,
+      apiVersion => apiversion
+    );
 
-    use WWW::SFDC qw'Metadata Manifest';
-        # Equivalent to importing WWW::SFDC::Metadata and WWW::SFDC::Manifest
+    # This will do queryMore until it's got everything
+    my @queryResult = $session->query('SELECT Id FROM Account');
 
 =head1 CONTENTS
 
 =over 4
 
-=item WWW::SFDC::SessionManager
+=item WWW::SFDC
 
 Provides the lowest-level interaction with SOAP::Lite. Handles the
 SessionID and renews it when necessary.
+
+=item WWW::SFDC::Constants
+
+Retrieves and caches the metadata objects as returned by DescribeMetadata for
+use when trying to interact with the filesystem etc.
 
 =item WWW::SFDC::Manifest
 
@@ -218,33 +228,40 @@ files for Salesforce.com retrievals and deployments.
 =head1 METADATA API EXAMPLES
 
 The following provides a starting point for a simple retrieval tool.
-Notice that after the initial setup of WWW::SFDC::Metadata the login
+Notice that after the initial setup of WWW::SFDC the login
 credentials are cached. In this example, you'd use
 _retrieveTimeMetadataChanges to remove files you didn't want to track,
 change sandbox outbound message endpoints to production, or similar.
 
-Notice that I've tried to keep the interface as fluent as possible in
-all of these modules - every method which doesn't have an obvious
-return value returns $self.
+Notice that I've tried to keep the manifest interface as fluent as possible -
+every method which doesn't have an obvious return value returns $self.
 
     package ExampleRetrieval;
 
-    use WWW::SFDC::Metadata;
+    use WWW::SFDC;
     use WWW::SFDC::Manifest;
     use WWW::SFDC::Zip qw'unzip';
 
-    WWW::SFDC::Metadata->instance(creds => {
+    my ($password, $username, $url, $apiVersion, $package);
+
+    sub _retrieveTimeMetadataChanges {
+      my ($path, $content) = @_;
+      return $content;
+    }
+
+    my $client = WWW::SFDC->new(
       password  => $password,
       username  => $username,
       url       => $url
-    });
+    );
 
-    my $manifest = WWW::SFDC::Manifest
-      ->readFromFile($manifestFile)
+    my $manifest = WWW::SFDC::Manifest->new(
+            constants => $client->Constants,
+            apiVersion => $apiVersion
+      )
+      ->readFromFile($package)
       ->add(
-        WWW::SFDC::Metadata
-          ->instance()
-          ->listMetadata(
+        $session->Metadata->listMetadata(
             {type => 'Document', folder => 'Apps'},
             {type => 'Document', folder => 'Developer_Documents'},
             {type => 'EmailTemplate', folder => 'Asset'},
@@ -253,28 +270,35 @@ return value returns $self.
       );
 
     unzip
-      $destDir,
-      WWW::SFDC::Metadata->instance()->retrieveMetadata($manifest->manifest()),
+      'src/',
+      $session->Metadata->retrieveMetadata($manifest->manifest()),
       \&_retrieveTimeMetadataChanges;
 
 Here's a similar example for deployments. You'll want to construct
 @filesToDeploy and $deployOptions context-sensitively!
 
-     package ExampleDeployment;
+    package ExampleDeployment;
 
-     use WWW::SFDC::Metadata;
-     use WWW::SFDC::Manifest;
-     use WWW::SFDC::Zip qw'makezip';
+    use WWW::SFDC;
+    use WWW::SFDC::Manifest;
+    use WWW::SFDC::Zip qw'makezip';
 
-     my $manifest = WWW::SFDC::Manifest
-       ->new()
-       ->addList(@filesToDeploy)
-       ->writeToFile($srcDir.'package.xml');
 
-     my $zip = makezip
-       $srcDir,
-       $manifest->getFileList(),
-       'package.xml';
+    my $client = WWW::SFDC->new(
+      password  => $password,
+      username  => $username,
+      url       => $url
+    );
+
+    my $manifest = WWW::SFDC::Manifest
+      ->new(constants => $client->Constants)
+      ->addList(@filesToDeploy)
+      ->writeToFile('src/package.xml');
+
+    my $zip = makezip
+      'src',
+      $manifest->getFileList(),
+      'package.xml';
 
     my $deployOptions = {
        singlePackage => 'true',
@@ -282,11 +306,7 @@ Here's a similar example for deployments. You'll want to construct
        checkOnly => 'true'
     };
 
-    WWW::SFDC::Metadata->instance(creds => {
-     username=>$username,
-     password=>$password,
-     url=>$url
-   })->deployMetadata $zip, $deployOptions;
+    $client->Metadata->deployMetadata($zip, $deployOptions);
 
 =head1 PARTNER API EXAMPLE
 
@@ -295,21 +315,21 @@ on a new sandbox, you might do something like this:
 
     package ExampleUserSanitisation;
 
-    use WWW::SFDC::Partner;
+    use WWW::SFDC;
     use List::Util qw'first';
 
-    WWW::SFDC::Partner->instance(creds => {
+    my $client = WWW::SFDC->new(
       username => $username,
       password => $password,
       url => $url
-    });
+    );
 
     my @users = (
       {User => alexander.brett, Email => alex@example.com, Profile => $profileId},
       {User => another.user, Email => a.n.other@example.com, Profile => $profileId},
     );
 
-    WWW::SFDC::Partner->instance()->update(
+    $client->Partner->update(
       map {
         my $row = $_;
         my $original = first {$row->{Username} =~ /$$_{User}/} @users;
@@ -318,11 +338,35 @@ on a new sandbox, you might do something like this:
            ProfileId => $original->{Profile},
            Email => $original->{Email},
         }
-      } WWW::SFDC::Partner->instance()->query(
+      } $client->Partner->query(
           "SELECT Id, Username FROM User WHERE "
           . (join " OR ", map {"Username LIKE '%$_%'"} map {$_->{User}} @inputUsers)
         )
     );
+
+=head1 SEE ALSO
+
+=head2 App::SFDC
+
+App::SFDC uses WWW::SFDC to provide a command-line application for interacting with
+Salesforce.com
+
+=head2 ALTERNATIVES
+
+Both of these modules offer more straightforward, comprehensive and mature
+wrappers around the Partner API than this module does at the moment. If all of
+your requirements can be fulfilled by that, you may be better off using them.
+
+This module is designed for use in deployment applications, or when you want to
+juggle multiple APIs to provide complicated functionality.
+
+=over 4
+
+=item WWW::Salesforce
+
+=item Salesforce
+
+=back
 
 =head1 BUGS
 
