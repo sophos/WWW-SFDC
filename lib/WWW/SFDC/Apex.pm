@@ -11,6 +11,8 @@ use warnings;
 use Log::Log4perl ':easy';
 use SOAP::Lite;
 
+use WWW::SFDC::Apex::ExecuteAnonymousResult;
+
 use Moo;
 with "WWW::SFDC::Role::SessionConsumer";
 
@@ -64,25 +66,30 @@ sub compileTriggers {
 
 =method executeAnonymous
 
+Returns a WWW::SFDC::Apex::ExecuteAnonymousResult containing the results of the
+executeAnonymous call. You must manually check whether this succeeded.
+
 =cut
 
 sub executeAnonymous {
   my ($self, $code, %options) = @_;
+
   my ($result, $headers) = $self->_call(
     'executeAnonymous',
     SOAP::Data->name(string => $code),
-    $options{debug} ? SOAP::Header->name('DebuggingHeader' => \SOAP::Data->name(
-        debugLevel => 'DEBUGONLY'
-      ))->uri($self->uri) : (),
-   );
+    (
+      $options{debug}
+        ? SOAP::Header->name('DebuggingHeader' => \SOAP::Data->name(
+            debugLevel => 'DEBUGONLY'
+          ))->uri($self->uri)
+        : ()
+    ),
+  );
 
-  LOGDIE "ExecuteAnonymous failed to compile: " . $result->{compileProblem}
-    if $result->{compiled} eq "false";
-
-  LOGDIE "ExecuteAnonymous failed to complete: " . $result->{exceptionMessage}
-    if ($result->{success} eq "false");
-
-  return $result, (defined $headers ? $headers->{debugLog} : ());
+  return WWW::SFDC::Apex::ExecuteAnonymousResult->new(
+    result => $result,
+    headers => $headers
+  );
 }
 
 =method runTests

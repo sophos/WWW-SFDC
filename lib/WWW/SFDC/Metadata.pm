@@ -164,6 +164,9 @@ Takes a base64 zip file and deploys it. Deploy options will be
 passed verbatim into the request; see the metadata developer
 guide for a description.
 
+Returns a WWW::SFDC::Metadata::DeployResult containing the result of the
+operation. You must manually check whether this succeeded!
+
 =cut
 
 #Check up on an async deployment request. Returns 1 when complete.
