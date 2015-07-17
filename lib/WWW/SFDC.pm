@@ -169,6 +169,12 @@ has 'request',
 
 __END__
 
+=head1 EXPERIMENTAL
+
+This module is quite unstable, as it's early in its development cycle. I'm
+trying to avoid breaking too much, but until it hits 1.0, there is a risk of
+breakage.
+
 =head1 SYNOPSIS
 
 WWW::SFDC provides a set of packages which you can use to build useful
