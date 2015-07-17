@@ -63,7 +63,7 @@ subtest "zip and unzip is eidempotent", sub {
   ok -e "$FOLDER/workflows/Site.workflow";
   is (read_file("$FOLDER/workflows/Site.workflow"), $WORKFLOW);
   ok -e "$FOLDER/package.xml";
-  is (read_file("$FOLDER/Package.xml"), $PACKAGE);
+  is (read_file("$FOLDER/package.xml"), $PACKAGE);
   done_testing();
 };
 
@@ -81,7 +81,7 @@ subtest "can skip file using callback", sub {
   ok -e "$FOLDER/workflows/Site.workflow"
     and is (read_file("$FOLDER/workflows/Site.workflow"), $WORKFLOW);
   ok -e "$FOLDER/package.xml"
-    and is (read_file("$FOLDER/Package.xml"), $PACKAGE);
+    and is (read_file("$FOLDER/package.xml"), $PACKAGE);
   done_testing();
 };
 
@@ -106,7 +106,7 @@ subtest "can modify file using callback", sub {
   ok -e "$FOLDER/workflows/Site.workflow"
     and is read_file("$FOLDER/workflows/Site.workflow"), $WORKFLOW;
   ok -e "$FOLDER/package.xml"
-    and is read_file("$FOLDER/Package.xml"), $PACKAGE;
+    and is read_file("$FOLDER/package.xml"), $PACKAGE;
   done_testing();
 };
 
