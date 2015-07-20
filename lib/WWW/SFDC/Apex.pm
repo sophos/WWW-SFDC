@@ -87,8 +87,8 @@ sub executeAnonymous {
   );
 
   return WWW::SFDC::Apex::ExecuteAnonymousResult->new(
-    result => $result,
-    headers => $headers
+    _result => $result,
+    _headers => $headers
   );
 }
 
