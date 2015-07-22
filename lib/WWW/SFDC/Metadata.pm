@@ -174,12 +174,14 @@ sub _checkDeployment {
   my ($self, $id, $previous) = @_;
   LOGDIE "No ID was passed in" unless $id;
 
-  my $result = WWW::SFDC::Metadata::DeployResult->new(
-    result => $self->_call(
+  my ($request, $headers) = $self->_call(
       'checkDeployStatus',
       SOAP::Data->name("id" => $id),
       SOAP::Data->name("includeDetails" => "true")
-    )
+    );
+
+  my $result = WWW::SFDC::Metadata::DeployResult->new(
+    result => $request
   );
 
   if (scalar (my @errors = (
