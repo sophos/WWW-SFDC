@@ -9,44 +9,38 @@ use warnings;
 
 use List::NSect 'spart';
 use Log::Log4perl ':easy';
-use Moo::Role;
 use Scalar::Util 'blessed';
 use SOAP::Lite;
 
-requires qw'';
+
+use Moo::Role;
+requires qw'_prepareSObjects';
 
 =method query
 
-  say $_->{Id} for WWW::SFDC::Partner->instance()->query($queryString);
-
 If the query() API call is incomplete and returns a queryLocator, this
 library will continue calling queryMore() until there are no more records to
-recieve, at which point it will return the entire list.
+recieve, at which point it will return the entire list:
 
-As it stands, if you want the native API behaviour, you will need to use the
-internal methods _query and _queryMore.
+  say $_->{Id} for WWW::SFDC->new(...)->Partner->query($queryString);
+
+OR:
+
+Execute a callback for each batch returned as part of a query. Useful for
+reducing memory usage and increasing efficiency handling huge queries:
+
+  WWW::SFDC->new(...)->Partner->query({
+    query => $queryString,
+    callback => \&myMethod
+  });
+
+This will return the result of the last call to &myMethod.
 
 =method queryAll
 
 This has the same additional behaviour as query().
 
 =cut
-
-sub _query {
-  my ($self, $query) = @_;
-  return $self->_call(
-    'query',
-    SOAP::Data->name(queryString => $query),
-  );
-}
-
-sub _queryAll {
-  my ($self, $query) = @_;
-  return $self->_call(
-    'queryAll',
-    SOAP::Data->name(queryString => $query),
-  );
-}
 
 sub _queryMore {
   my ($self, $locator) = @_;
@@ -91,39 +85,58 @@ sub _cleanUpSObject {
   return \%copy;
 }
 
-# Given the output of _query() or _queryAll(), chain
-# together calls to _queryMore() and aggregate the results.
+# Chain together calls to _queryMore() and handle the results.
 sub _completeQuery {
-  my ($self, $request) = @_;
-  my @results = $self->_getQueryResults($request);
+  my ($self, %params) = @_;
 
+  LOGDIE "You must provide a query string!" unless $params{query};
+  INFO "Executing SOQL query: $params{query}";
+
+  my $request = $self->_call(
+    $params{method},
+    SOAP::Data->name(queryString => $params{query})
+  );
+
+  my $callback = $params{callback} || sub {
+    state @results;
+    push @results, @_;
+    return @results;
+  };
+
+  my @result = $callback->($self->_getQueryResults($request));
   until ($request->{done} eq 'true') {
     $self->_sleep();
     $request = $self->_queryMore($request->{queryLocator});
-    push @results, $self->_getQueryResults($request);
+    @result = $callback->($self->_getQueryResults($request));
   }
 
-  return @results;
+  return @result;
 }
 
 sub query {
-  my ($self, $query) = @_;
-  INFO "Executing SOQL query: ".$query;
+  my ($self, $params) = @_;
   return $self->_completeQuery(
-    $self->_query($query)
+    ref $params
+      ? %$params
+      : (query => $params),
+    method => 'query'
   );
 }
 
 sub queryAll {
-  my ($self, $query) = @_;
+  my ($self, $params) = @_;
   return $self->_completeQuery(
-    $self->_queryAll($query)
+    ref $params
+      ? %$params
+      : (query => $params),
+    method => 'queryAll'
   );
+
 }
 
 =method create
 
-  say "$$_{id}:\t$$_{success}" for WWW::SFDC::Partner->instance()->create(
+  say "$$_{id}:\t$$_{success}" for WWW::SFDC->new(...)->Partner->create(
     {type => 'thing', Id => 'foo', Field__c => 'bar', Name => 'baz'}
     {type => 'otherthing', Id => 'bam', Field__c => 'bas', Name => 'bat'}
   );
