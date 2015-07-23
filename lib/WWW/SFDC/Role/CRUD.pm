@@ -7,11 +7,11 @@ use warnings;
 
 # VERSION
 
+use Data::Dumper;
 use List::NSect 'spart';
 use Log::Log4perl ':easy';
 use Scalar::Util 'blessed';
 use SOAP::Lite;
-
 
 use Moo::Role;
 requires qw'_prepareSObjects';
@@ -56,6 +56,7 @@ sub _queryMore {
 # can't handle it as an array
 sub _getQueryResults {
   my ($self, $request) = @_;
+  TRACE Dumper $request;
   return ref $request->{records} eq 'ARRAY'
     ? map {$self->_cleanUpSObject($_)} @{$request->{records}}
     : ( $self->_cleanUpSObject($request->{records}) );
@@ -68,6 +69,7 @@ sub _cleanUpSObject {
   return () unless $obj;
   my %copy = %$obj; # strip the class from $obj
   $copy{Id} = $copy{Id}->[0] if $copy{Id} and ref $copy{Id} eq "ARRAY";
+  delete $copy{Id} unless $copy{Id};
 
   while (my ($key, $entry) = each %copy) {
     next unless blessed $entry;
@@ -92,12 +94,14 @@ sub _completeQuery {
   LOGDIE "You must provide a query string!" unless $params{query};
   INFO "Executing SOQL query: $params{query}";
 
-  my $request = $self->_call(
+  my ($request, $headers) = $self->_call(
     $params{method},
     SOAP::Data->name(queryString => $params{query})
   );
 
+
   my $callback = $params{callback} || sub {
+    TRACE Dumper \@_;
     state @results;
     push @results, @_;
     return @results;
