@@ -44,10 +44,11 @@ This has the same additional behaviour as query().
 
 sub _queryMore {
   my ($self, $locator) = @_;
-  return $self->_call(
+  my ($result, $headers) = $self->_call(
     'queryMore',
     SOAP::Data->name(queryLocator => $locator),
   );
+  return $result;
 }
 
 # Extract the results from a $request. This handles the case
