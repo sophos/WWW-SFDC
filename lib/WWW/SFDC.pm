@@ -9,6 +9,7 @@ use 5.12.0;
 
 use Data::Dumper;
 use Log::Log4perl ':easy';
+use Method::Signatures;
 
 use Moo;
 
@@ -58,8 +59,7 @@ INIT: {
   }
 }
 
-sub _login {
-  my $self = shift;
+method _login {
 
   INFO "Logging in...\t";
 
@@ -80,6 +80,7 @@ sub _login {
     message => "Login failed: " . $request->faultstring,
     request => $request
   ) if $request->fault;
+
   return $request->result();
 }
 
@@ -87,11 +88,9 @@ sub _login {
 
 =cut
 
-sub _doCall {
-  my $self = shift;
-  my ($attempts, $URL, $NS, @stuff) = @_;
+method _doCall ($attempts, $URL, $NS, $method, @params) {
 
-  INFO "Starting $stuff[0] request";
+  INFO "Starting $method request";
   if (
     my $result = eval {
       SOAP::Lite
@@ -99,9 +98,10 @@ sub _doCall {
         ->readable(1)
         ->default_ns($NS)
         ->call(
-          @stuff,
+          $method,
+          @params,
           SOAP::Header->name("SessionHeader" => {
-            "sessionId" => $self->loginResult()->{"sessionId"}
+            "sessionId" => $self->loginResult->{"sessionId"}
           })->uri($NS)
         )
     }
@@ -109,37 +109,37 @@ sub _doCall {
     return $result;
 
   } elsif ($attempts--) {
-    INFO "$stuff[0] failed: $@";
+    INFO "$method failed: $@";
     INFO "Retrying ($attempts attempts remaining)";
-    return $self->_doCall($attempts, $URL, $NS, @stuff);
+    return $self->_doCall($attempts, $URL, $NS, @params);
 
   } else {
     WWW::SFDC::CallException->throw(
-      message => "$stuff[0] failed: " . $@
+      message => "$method failed: " . $@
     );
   }
 }
 
-sub call {
-  my $self = shift;
-  my $req;
+method call (@_) {
+  my $result;
 
   while (
-    $req = $self->_doCall($self->attempts, @_)
-    and $req->fault
+    $result = $self->_doCall($self->attempts, @_)
+    and $result->fault
   ) {
-    TRACE "Operation request " => Dumper $req;
-    if ($req->faultstring =~ /INVALID_SESSION_ID/) {
+    TRACE "Operation request " => Dumper $result;
+
+    if ($result->faultstring =~ /INVALID_SESSION_ID/) {
       $self->loginResult($self->_login());
     } else {
       WWW::SFDC::CallException->throw(
-        message => "$_[2] failed: " . $req->faultstring,
-        request => $req
+        message => "$_[2] failed: " . $result->faultstring,
+        request => $result
       );
     }
   }
 
-  return $req;
+  return WWW::SFDC::CallResult->new(request => $result);
 };
 
 =method isSandbox
@@ -149,8 +149,7 @@ decide whether to sanitise metadata or similar.
 
 =cut
 
-sub isSandbox {
-  my $self = shift;
+method isSandbox {
   return $self->loginResult->{sandbox} eq  "true";
 }
 
@@ -164,6 +163,50 @@ with 'WWW::SFDC::Role::Exception';
 
 has 'request',
   is => 'ro';
+
+1;
+
+package WWW::SFDC::CallResult;
+use strict;
+use warnings;
+
+use overload
+  bool => sub {!$_[0]->request->fault};
+
+use Log::Log4perl ':easy';
+
+use Moo;
+
+has 'request',
+  is => 'ro',
+  required => 1;
+
+has 'headers',
+  is => 'ro',
+  lazy => 1,
+  builder => sub {
+    return $_[0]->request->headers()
+  };
+
+has 'result',
+  is => 'ro',
+  lazy => 1,
+  builder => sub {
+    $_[0]->request->result;
+  };
+
+has 'results',
+  is => 'ro',
+  lazy => 1,
+  builder => sub {
+    my $req = $_[0]->request;
+    my $results = [
+      $req->result(),
+      (defined $req->paramsout() ? $req->paramsout() : ())
+    ];
+    TRACE sub { Dumper $results};
+    return $results;
+  };
 
 1;
 

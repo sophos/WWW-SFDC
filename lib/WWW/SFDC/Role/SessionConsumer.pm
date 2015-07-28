@@ -56,15 +56,11 @@ sub _buildURL {
 
 sub _call {
   my $self = shift;
-  my $req = $self->session->call(
+  return $self->session->call(
     $self->url(),
     $self->uri(),
     @_
   );
-
-  return $req->result(),
-    (defined $req->paramsout() ? $req->paramsout() : ()),
-    (defined $req->headers() ? $req->headers() : ());
 }
 
 sub _sleep {

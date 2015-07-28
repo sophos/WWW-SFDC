@@ -10,6 +10,7 @@ use warnings;
 use Data::Dumper;
 use List::NSect 'spart';
 use Log::Log4perl ':easy';
+use Method::Signatures;
 use Scalar::Util 'blessed';
 use SOAP::Lite;
 
@@ -42,21 +43,18 @@ This has the same additional behaviour as query().
 
 =cut
 
-sub _queryMore {
-  my ($self, $locator) = @_;
-  my ($result, $headers) = $self->_call(
+method _queryMore ($locator) {
+  return $self->_call(
     'queryMore',
     SOAP::Data->name(queryLocator => $locator),
-  );
-  return $result;
+  )->result;
 }
 
 # Extract the results from a $request. This handles the case
 # where there is only one result, as well as 0 or more than 1.
 # They require different handling because in the 1 case, you
 # can't handle it as an array
-sub _getQueryResults {
-  my ($self, $request) = @_;
+method _getQueryResults ($request) {
   TRACE Dumper $request;
   return ref $request->{records} eq 'ARRAY'
     ? map {$self->_cleanUpSObject($_)} @{$request->{records}}
@@ -65,8 +63,7 @@ sub _getQueryResults {
 
 # Unbless an SObject, and de-duplicate the ID field - SFDC
 # duplicates the ID, which is interpreted as an arrayref!
-sub _cleanUpSObject {
-  my ($self, $obj) = @_;
+method _cleanUpSObject ($obj) {
   return () unless $obj;
   my %copy = %$obj; # strip the class from $obj
   $copy{Id} = $copy{Id}->[0] if $copy{Id} and ref $copy{Id} eq "ARRAY";
@@ -89,37 +86,30 @@ sub _cleanUpSObject {
 }
 
 # Chain together calls to _queryMore() and handle the results.
-sub _completeQuery {
-  my ($self, %params) = @_;
+method _completeQuery (
+  :$query!,
+  :$method!,
+  :$callback = sub {state @results; push @results, @_; return @results}
+) {
 
-  LOGDIE "You must provide a query string!" unless $params{query};
-  INFO "Executing SOQL query: $params{query}";
+  INFO "Executing SOQL query: $query";
 
-  my ($request, $headers) = $self->_call(
-    $params{method},
-    SOAP::Data->name(queryString => $params{query})
-  );
+  my $result = $self->_call(
+    $method,
+    SOAP::Data->name(queryString => $query)
+  )->result;
 
-
-  my $callback = $params{callback} || sub {
-    TRACE Dumper \@_;
-    state @results;
-    push @results, @_;
-    return @results;
-  };
-
-  my @result = $callback->($self->_getQueryResults($request));
-  until ($request->{done} eq 'true') {
+  my @results = $callback->($self->_getQueryResults($result));
+  until ($result->{done} eq 'true') {
     $self->_sleep();
-    $request = $self->_queryMore($request->{queryLocator});
-    @result = $callback->($self->_getQueryResults($request));
+    $result = $self->_queryMore($result->{queryLocator});
+    @results = $callback->($self->_getQueryResults($result));
   }
 
-  return @result;
+  return @results;
 }
 
-sub query {
-  my ($self, $params) = @_;
+method query ($params) {
   return $self->_completeQuery(
     ref $params
       ? %$params
@@ -128,8 +118,7 @@ sub query {
   );
 }
 
-sub queryAll {
-  my ($self, $params) = @_;
+method queryAll ($params) {
   return $self->_completeQuery(
     ref $params
       ? %$params
@@ -142,8 +131,8 @@ sub queryAll {
 =method create
 
   say "$$_{id}:\t$$_{success}" for WWW::SFDC->new(...)->Partner->create(
-    {type => 'thing', Id => 'foo', Field__c => 'bar', Name => 'baz'}
-    {type => 'otherthing', Id => 'bam', Field__c => 'bas', Name => 'bat'}
+    {type => 'thing', Field__c => 'bar', Name => 'baz'}
+    {type => 'otherthing', Field__c => 'bas', Name => 'bat'}
   );
 
 Create chunks your SObjects into 200s before calling create(). This means that if
@@ -151,14 +140,12 @@ you have more than 200 objects, you will incur multiple API calls.
 
 =cut
 
-sub create {
-  my $self = shift;
-
+method create (@_) {
   return map {
-    $self->_call(
+    @{$self->_call(
       'create',
       $self->_prepareSObjects(@$_)
-    );
+    )->results};
   } spart 200, @_;
 }
 
@@ -173,16 +160,15 @@ Returns an array that looks like [{success => 1, id => 'id'}, {}...] with LOWERC
 
 =cut
 
-sub update {
-  my $self = shift;
+method update (@_) {
 
   TRACE "Objects for update" => \@_;
   INFO "Updating objects";
 
-  return $self->_call(
+  return @{$self->_call(
     'update',
     $self->_prepareSObjects(@_)
-   );
+   )->results};
 }
 
 =method delete
@@ -193,16 +179,15 @@ Returns an array that looks like [{success => 1, id => 'id'}, {}...] with LOWERC
 
 =cut
 
-sub delete {
-    my $self = shift;
+method delete (@_) {
 
     DEBUG "IDs for deletion" => \@_;
     INFO "Deleting objects";
 
-    return $self->_call(
+    return @{$self->_call(
         'delete',
         map {SOAP::Data->name('ids' => $_)} @_
-    );
+    )->results};
 }
 
 =method undelete
@@ -213,16 +198,15 @@ Returns an array that looks like [{success => 1, id => 'id'}, {}...] with LOWERC
 
 =cut
 
-sub undelete {
-    my $self = shift;
+method undelete (@_) {
 
     DEBUG "IDs for undelete" => \@_;
     INFO "Deleting objects";
 
-    return $self->_call(
+    return @{$self->_call(
         'undelete',
         map {SOAP::Data->name('ids' => $_)} @_
-    );
+    )->results};
 }
 
 =method retrieve
@@ -231,16 +215,15 @@ Retrieves SObjects by ID. Not to be confused with the metadata retrieve method.
 
 =cut
 
-sub retrieve {
-    my $self = shift;
+method retrieve (@_) {
 
     DEBUG "IDs for retrieve" => \@_;
     INFO "Retrieving objects";
 
-    return $self->_call(
+    return @{$self->_call(
         'retrieve',
         map {SOAP::Data->name('ids' => $_)} @_
-    );
+    )->results};
 }
 
 1;
