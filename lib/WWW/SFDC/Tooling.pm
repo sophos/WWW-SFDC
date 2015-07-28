@@ -94,7 +94,7 @@ sub executeAnonymous {
     $options{debug} ? SOAP::Header->name('DebuggingHeader' => \SOAP::Data->name(
         debugLevel => 'DEBUGONLY'
       )) : (),
-   );
+   )->result;
 
   LOGDIE "ExecuteAnonymous failed to compile: " . $result->{compileProblem}
     if $result->{compiled} eq "false";
@@ -109,6 +109,28 @@ sub executeAnonymous {
 
   $client->Tooling->runTests('name','name2');
 
+returns a RunTestResult hash which looks like:
+
+{
+  successes => [{
+      name => 'MyTest',
+      id => '...',
+      namespace => undef,
+      time => 123, #time in MS
+      methodName => 'something'
+    },
+    ...
+  ],
+  failures => [{...}]
+  totalTime => 1234,
+  numFailures => 3,
+  numTestsRun => 4,
+  codeCoverage => [
+    # HUGE LIST OF HUGH HASHREFS GOES HERE.
+  ]
+
+}
+
 =cut
 
 sub runTests {
@@ -117,17 +139,20 @@ sub runTests {
   return $self->_call(
     'runTests',
     map {\SOAP::Data->name(classes => $_)} @names
-  );
+  )->result;
 }
 
 =method runTestsAsynchronous
+
+Takes a list of IDs of test classes.
+Returns the ID of the enqueued test run.
 
 =cut
 
 sub runTestsAsynchronous {
   my ($self, @ids) = @_;
 
-  return $self->_call('runTestsAsynchronous', join ",", @ids);
+  return $self->_call('runTestsAsynchronous', join ",", @ids)->result;
 }
 
 1;
