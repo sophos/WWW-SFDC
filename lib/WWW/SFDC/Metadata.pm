@@ -9,6 +9,7 @@ use warnings;
 
 use Data::Dumper;
 use Log::Log4perl ':easy';
+use Method::Signatures;
 use SOAP::Lite;
 
 use WWW::SFDC::Metadata::DeployResult;
@@ -61,9 +62,7 @@ and generates a list of file names suitable for turning into a WWW::SFDC::Manife
 
 =cut
 
-sub listMetadata {
-
-  my $self = shift; #remaining elements of @_ are queries;
+method listMetadata {
 
   INFO "Listing Metadata...\t";
 
@@ -72,7 +71,7 @@ sub listMetadata {
 
   # listMetadata can only handle 3 requests at a time, so we chunk them.
   while (my @items = splice @queryData, 0, 3) {
-    push @result, $$_{fileName} for $self->_call('listMetadata', @items);
+    push @result, $$_{fileName} for @{$self->_call('listMetadata', @items)->results};
   }
 
   return @result;
@@ -94,10 +93,8 @@ same data as checkRetrieval. Requires a manifest of the form:
 # Sets up an asynchronous metadata retrieval request and
 # returns just the id, for checking later. Accepts a manifest.
 
-sub _startRetrieval {
+method _startRetrieval ($manifest) {
   INFO "Starting retrieval";
-
-  my ($self, $manifest) = @_;
 
   # These maps basically preserve the structure passed in,
   # translating it to salesforce's special package.xml structure.
@@ -111,7 +108,7 @@ sub _startRetrieval {
     } keys %$manifest;
 
 
-  return ($self->_call(
+  return $self->_call(
     'retrieve',
     SOAP::Data->name(
       retrieveRequest => {
@@ -119,7 +116,7 @@ sub _startRetrieval {
       	apiVersion => $self->session->apiVersion(),
       	unpackaged => \SOAP::Data->value(@queryData)
       })
-   ) )[0]->{id};
+   )->result->{id};
 
 }
 
@@ -127,14 +124,12 @@ sub _startRetrieval {
 # undef unless there's something to give back, in which case it
 # returns the base64 encoded zip file from the response.
 
-sub _checkRetrieval {
-  my ($self, $id) = @_;
-  LOGDIE "No ID was passed in!" unless $id;
+method _checkRetrieval ($id) {
 
-  my ($result) = $self->_call(
+  my $result = $self->_call(
     'checkRetrieveStatus',
     SOAP::Data->name("asyncProcessId" => $id)
-   );
+   )->result;
 
   INFO "Status:" . $$result{status};
 
@@ -144,18 +139,15 @@ sub _checkRetrieval {
 }
 
 
-sub retrieveMetadata {
-
-  my ($self, $manifest) = @_;
-  LOGDIE "This method must be called with a manifest" unless $manifest;
+method retrieveMetadata ($manifest) {
 
   my $requestId = $self->_startRetrieval($manifest);
-
   my $result;
 
   do { $self->_sleep() } until $result = $self->_checkRetrieval($requestId);
 
   return $result;
+
 }
 
 =method deployMetadata $zipString, \%deployOptions
@@ -170,18 +162,16 @@ operation. You must manually check whether this succeeded!
 =cut
 
 #Check up on an async deployment request. Returns 1 when complete.
-sub _checkDeployment {
-  my ($self, $id, $previous) = @_;
-  LOGDIE "No ID was passed in" unless $id;
+method _checkDeployment ($id, $previous?) {
 
-  my ($request, $headers) = $self->_call(
+  my $callResult = $self->_call(
       'checkDeployStatus',
       SOAP::Data->name("id" => $id),
       SOAP::Data->name("includeDetails" => "true")
-    );
+    )->result;
 
   my $result = WWW::SFDC::Metadata::DeployResult->new(
-    result => $request
+    result => $callResult
   );
 
   if (scalar (my @errors = (
@@ -191,14 +181,12 @@ sub _checkDeployment {
     WARN Dumper \@errors;
   }
 
-
   return $result
 }
 
-sub deployMetadata {
-  my ($self, $zip, $deployOptions) = @_;
+method deployMetadata ($zip, $deployOptions?) {
 
-  my ($result) = $self->_call(
+  my $result = $self->_call(
     'deploy',
     SOAP::Data->name( zipfile => $zip),
     (
@@ -206,7 +194,7 @@ sub deployMetadata {
         ? SOAP::Data->name(DeployOptions=>$deployOptions)
         : ()
     )
-   );
+   )->result;
 
   INFO "Deployment ID: $$result{id}";
 
@@ -227,26 +215,22 @@ Calls deployRecentValidation with your successfully-validated deployment.
 
 =cut
 
-sub deployRecentValidation {
-  my ($self, $id) = @_;
-
+method deployRecentValidation ($id) {
   chomp $id;
 
   return WWW::SFDC::Metadata::DeployResult->new(
     result => $self->_call(
       'deployRecentValidation',
       SOAP::Data->name(validationID => $id)
-    )
+    )->result
   );
 }
 
-sub describeMetadata {
-  my ($self) = @_;
-
+method describeMetadata {
   return $self->_call(
     'describeMetadata',
     SOAP::Data->name(apiVersion => $self->session->apiVersion)
-   );
+   )->result;
 }
 
 1;

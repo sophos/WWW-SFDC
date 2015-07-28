@@ -28,13 +28,10 @@ has 'TYPES',
   lazy => 1,
   default => sub {
     my $self = shift;
-    my ($describe) = $self->session->Metadata->describeMetadata(
-          $self->session->apiVersion
-    );
     +{
       map {
         $_->{directoryName} => $_;
-      } @{$describe->{metadataObjects}}
+      } @{$self->session->Metadata->describeMetadata->{metadataObjects}}
     }
   };
 
