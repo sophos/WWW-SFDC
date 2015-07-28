@@ -7,18 +7,19 @@ use warnings;
 
 # VERSION
 
-use XML::Parser;
-use Scalar::Util qw(blessed);
-use List::Util 1.29 qw'first reduce pairmap pairgrep pairfirst';
 use Data::Dumper;
+use List::Util 1.29 qw'first reduce pairmap pairgrep pairfirst';
 use Log::Log4perl ':easy';
+use Method::Signatures;
+use Scalar::Util qw(blessed);
+use XML::Parser;
 
 use Moo;
 
-has 'constants', is => 'ro', required => 1;
-has 'manifest', is => 'rw', default => sub { {} };
-has 'isDeletion', is => 'ro';
 has 'apiVersion', is => 'rw', default => '34';
+has 'constants', is => 'ro', required => 1;
+has 'isDeletion', is => 'ro';
+has 'manifest', is => 'rw', default => sub { {} };
 
 =head1 SYNOPSIS
 
@@ -43,11 +44,7 @@ and get a structure suitable for passing into WWW::SFDC::Metadata functions.
 # and returns a hash containing the metadata type, folder name, file name, and
 # file extension, excluding -meta.xml.
 
-sub _splitLine {
-  my ($self, $line) = @_;
-
-  LOGDIE "Called _splitLine with no argument!" unless $line;
-
+method _splitLine ($line) {
   # clean up the line
   $line =~ s/.*src\///;
   $line =~ s/[\n\r]//g;
@@ -89,9 +86,7 @@ sub _splitLine {
 # - email/foo/bar.email
 # - email/foo/bar.email-meta.xml
 
-sub _getFilesForLine {
-  my ($self, $line) = @_;
-
+method _getFilesForLine ($line?) {
   return () unless $line;
 
   my %split = %{$self->_splitLine($line)};
@@ -116,8 +111,7 @@ sub _getFilesForLine {
 # Returns a list reference to a _deduped version of the list
 # reference passed in.
 
-sub _dedupe {
-  my ($self) = @_;
+method _dedupe {
   my %result;
   for my $key (keys %{$self->manifest}) {
     my %_deduped = map {$_ => 1} @{$self->manifest->{$key}};
@@ -134,8 +128,7 @@ a .zip file.
 
 =cut
 
-sub getFileList {
-  my $self = shift;
+method getFileList {
 
   return map {
     my $type = $self->constants->getDiskName($_);
@@ -157,8 +150,7 @@ Adds an existing manifest object or hash to this one.
 
 =cut
 
-sub add {
-  my ($self, $new) = @_;
+method add ($new) {
 
   if (defined blessed $new and blessed $new eq blessed $self) {
     push @{$self->manifest->{$_}}, @{$new->manifest->{$_}} for keys %{$new->manifest};
@@ -175,8 +167,7 @@ Adds a list of components or file paths to the manifest file.
 
 =cut
 
-sub addList {
-  my $self = shift;
+method addList (@_) {
 
   return reduce {$a->add($b)} $self, map {
     TRACE "Adding $_ to manifest";
@@ -200,9 +191,7 @@ returns it.
 
 =cut
 
-sub readFromFile {
-  my ($self, $fileName) = @_;
-
+method readFromFile ($fileName) {
   return reduce {$a->add($b)} $self, map {+{
     do {
       pairmap {$b->[2]} pairfirst {$a eq 'name'} @$_
@@ -223,8 +212,7 @@ the manifest object.
 
 =cut
 
-sub writeToFile {
-  my ($self, $fileName) = @_;
+method writeToFile ($fileName) {
   open my $fh, ">", $fileName or LOGDIE "Couldn't open $fileName to write manifest to disk";
   print $fh $self->getXML();
   return $self;
@@ -236,8 +224,7 @@ Returns the XML representation for this manifest.
 
 =cut
 
-sub getXML {
-  my ($self) = @_;
+method getXML {
   return join "", (
     "<?xml version='1.0' encoding='UTF-8'?>",
     "<Package xmlns='http://soap.sforce.com/2006/04/metadata'>",
