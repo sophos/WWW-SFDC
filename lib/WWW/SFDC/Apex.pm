@@ -9,6 +9,7 @@ use warnings;
 # VERSION
 
 use Log::Log4perl ':easy';
+use Method::Signatures;
 use SOAP::Lite;
 
 use WWW::SFDC::Apex::ExecuteAnonymousResult;
@@ -29,13 +30,8 @@ sub _extractURL {
 
 =cut
 
-sub compileAndTest {
-  my ($self, @names) = @_;
-
-  return $self->_call(
-    'compileAndTest',
-    map {\SOAP::Data->name(classes => $_)} @names
-    );
+sub compileAndTest () {
+  ...
 }
 
 =method compileClasses
@@ -43,12 +39,7 @@ sub compileAndTest {
 =cut
 
 sub compileClasses {
-  my ($self, @names) = @_;
-
-  return $self->_call(
-    'compileClasses',
-    SOAP::Data->value(map {SOAP::Data->name(scripts => $_)} @names)
-    );
+  ...
 }
 
 =method compileTriggers
@@ -56,12 +47,7 @@ sub compileClasses {
 =cut
 
 sub compileTriggers {
-  my ($self, @names) = @_;
-
-  return $self->_call(
-    'compileTriggers',
-    map {\SOAP::Data->name(classes => $_)} @names
-    );
+  ...
 }
 
 =method executeAnonymous
@@ -71,14 +57,13 @@ executeAnonymous call. You must manually check whether this succeeded.
 
 =cut
 
-sub executeAnonymous {
-  my ($self, $code, %options) = @_;
+method executeAnonymous ($code, :$debug = 1) {
 
-  my ($result, $headers) = $self->_call(
+  my $callResult = $self->_call(
     'executeAnonymous',
     SOAP::Data->name(string => $code),
     (
-      $options{debug}
+      $debug
         ? SOAP::Header->name('DebuggingHeader' => \SOAP::Data->name(
             debugLevel => 'DEBUGONLY'
           ))->uri($self->uri)
@@ -87,8 +72,8 @@ sub executeAnonymous {
   );
 
   return WWW::SFDC::Apex::ExecuteAnonymousResult->new(
-    _result => $result,
-    _headers => $headers
+    _result => $callResult->result,
+    _headers => $callResult->headers
   );
 }
 
@@ -97,17 +82,10 @@ sub executeAnonymous {
 =cut
 
 sub runTests {
-  my ($self, @names) = @_;
-
-  return $self->_call(
-    'runTests',
-    map {\SOAP::Data->name(classes => $_)} @names
-    );
+  ...
 }
 
 =method wsdlToApex
-
-Unimplemented
 
 =cut
 
@@ -118,3 +96,12 @@ sub wsdlToApex {
 1;
 
 __END__
+
+=head1 WARNING
+
+The only implemented method from the Apex API is currently executeAnonymous.
+Without a solid use-case for the other methods, I'm not sure what the return
+values of those calls should be.
+
+If you want to implement those calls, please go ahead, constructing results
+as you see fit, and submit a pull request!
