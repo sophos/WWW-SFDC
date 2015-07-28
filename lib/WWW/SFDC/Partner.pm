@@ -9,6 +9,7 @@ use warnings;
 
 use Data::Dumper;
 use Log::Log4perl ':easy';
+use Method::Signatures;
 use Scalar::Util 'blessed';
 use SOAP::Lite;
 
@@ -37,8 +38,7 @@ has 'uri',
 
 sub _extractURL { return $_[1]->{serverUrl} }
 
-sub _prepareSObjects {
-  my $self = shift;
+method _prepareSObjects (@_) {
   # prepares an array of objects for an update or insert call by converting
   # it to an array of SOAP::Data
 
@@ -69,14 +69,12 @@ sub _prepareSObjects {
 
 =cut
 
-sub setPassword {
-  my ($self, %params) = @_;
-  LOGDIE "You must provide an Id and Password" unless $params{Id} and $params{Password};
-  INFO "Setting password for user $params{Id}";
+method setPassword (:Id!, :Password!){
+  INFO "Setting password for user $Id";
   return $self->_call(
     'setPassword',
-    SOAP::Data->name(userID => $params{Id}),
-    SOAP::Data->name(password => $params{Password}),
+    SOAP::Data->name(userID => $Id),
+    SOAP::Data->name(password => $Password),
    );
 }
 
