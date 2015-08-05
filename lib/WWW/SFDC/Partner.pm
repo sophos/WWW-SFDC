@@ -69,7 +69,7 @@ method _prepareSObjects (@_) {
 
 =cut
 
-method setPassword (:Id!, :Password!){
+method setPassword (:$Id!, :$Password!){
   INFO "Setting password for user $Id";
   return $self->_call(
     'setPassword',
@@ -84,7 +84,7 @@ __END__
 
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -92,4 +92,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Partner
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

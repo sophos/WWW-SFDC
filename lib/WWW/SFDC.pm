@@ -10,41 +10,99 @@ use 5.12.0;
 use Data::Dumper;
 use Log::Log4perl ':easy';
 use Method::Signatures;
+use WWW::SFDC::CallResult;
 
 use Moo;
 
+=attr apiVersion
+
+The API version with which to call Salesforce.com. Must be over 30, since the
+metadata API interface changed quite a lot in 31. Defaults to 33.
+
+=cut
+
 has 'apiVersion',
   is => 'ro',
-  isa => sub { LOGDIE "The API version ($_[0]) must be >= 31." unless $_[0] and $_[0] >= 31},
+  isa => sub {
+    LOGDIE "The API version ($_[0]) must be >= 31."
+      unless $_[0] and $_[0] >= 31
+  },
   default => '33.0';
+
+=attr loginResult
+
+The result of the login call. API modules use this to populate the correct
+endpoint URL.
+
+=cut
 
 has 'loginResult',
   is => 'rw',
   lazy => 1,
   builder => '_login';
 
+=attr password
+
+Used to authenticate with Salesforce.com. Unless you have a whitelisted IP
+address, this needs to include your security token.
+
+=cut
+
 has 'password',
   is => 'ro',
   required => 1;
+
+=attr pollInterval
+
+How long (in seconds) WWW::SFDC should wait between retries, and how often it
+should poll for updates on asynchronous jobs. Defaults to 15 seconds.
+
+=cut
 
 has 'pollInterval',
   is => 'rw',
   default => 15;
 
+=attr attempts
+
+How many times WWW::SFDC should retry when encountering connection issues.
+Defaults to 3. It's a good idea to have this value above 0, since SFDC
+occasionally returns 500 errors when under heavy load.
+
+=cut
+
 has 'attempts',
   is => 'rw',
   default => 3;
+
+=attr url
+
+The URL to use when logging into Salesforce. Defaults to
+L<https://test.salesforce.com> - set this to L<https://login.salesforce.com> or
+to a specific instance as appropriate.
+
+=cut
 
 has 'url',
   is => 'ro',
   default => "https://test.salesforce.com",
   isa => sub { $_[0] and $_[0] =~ s/\/$// or 1; }; #remove trailing slash
 
+=attr username
+
+Used for authentication against SFDC.
+
+=cut
+
 has 'username',
   is => 'ro',
   required => 1;
 
 INIT: {
+  # Import each API module by reflection. This enables calling them using
+  # $session->$API->$method, but it means that when packing you must
+  # manually add the right modules, since there aren't 'compile'-time
+  # static C<use> statements.
   for my $module (qw'
     Apex Constants Metadata Partner Tooling
   '){
@@ -84,15 +142,28 @@ method _login {
   return $request->result();
 }
 
-=method call
+=method call($URL, $NameSpace, $method, @parameters)
+
+Executes a Salesforce.com API call. This will retry C<$self->attempts> times in
+the event of a connection error, and if the session is invalid it will refresh
+the session ID by issuing a new login request.
+
+Returns a L<WWW::SFDC::CallResult> and throws a L<WWW::SFDC::CallException>.
 
 =cut
 
 method _doCall ($attempts, $URL, $NS, $method, @params) {
 
+  # This is the utility method behind call(). It orchestrates the actual
+  # SOAP::Lite call with the correct parameters and detects connection vs
+  # SOAP errors.
+
   INFO "Starting $method request";
   if (
     my $result = eval {
+      # SOAP::Lite dies when there's a connection error; if there's an API
+      # error it lives but $result->fault is set. This allows us to detect
+      # network errors and retry.
       SOAP::Lite
         ->proxy($URL)
         ->readable(1)
@@ -103,15 +174,16 @@ method _doCall ($attempts, $URL, $NS, $method, @params) {
           SOAP::Header->name("SessionHeader" => {
             "sessionId" => $self->loginResult->{"sessionId"}
           })->uri($NS)
-        )
+        );
     }
   ) {
     return $result;
 
-  } elsif ($attempts--) {
+  } elsif ($attempts) {
+    # Looping by recursion makes it easier to write this bit.
     INFO "$method failed: $@";
     INFO "Retrying ($attempts attempts remaining)";
-    return $self->_doCall($attempts, $URL, $NS, @params);
+    return $self->_doCall($attempts-1, $URL, $NS, @params);
 
   } else {
     WWW::SFDC::CallException->throw(
@@ -123,9 +195,9 @@ method _doCall ($attempts, $URL, $NS, $method, @params) {
 method call (@_) {
   my $result;
 
-  while (
+  until (
+    # CallResult is falsy when the call failed
     $result = $self->_doCall($self->attempts, @_)
-    and $result->fault
   ) {
     TRACE "Operation request " => Dumper $result;
 
@@ -155,7 +227,13 @@ method isSandbox {
 
 1;
 
+
 package WWW::SFDC::CallException;
+# CallException allows sensible handling of API errors;
+# L<WWW::SFDC::Role::Exception> provides overloaded stringification so that
+# when you C<die $exception;> there's a sensible error message, but you can
+# still examine the request and response in a consumer library.
+
 use strict;
 use warnings;
 use Moo;
@@ -163,50 +241,6 @@ with 'WWW::SFDC::Role::Exception';
 
 has 'request',
   is => 'ro';
-
-1;
-
-package WWW::SFDC::CallResult;
-use strict;
-use warnings;
-
-use overload
-  bool => sub {!$_[0]->request->fault};
-
-use Log::Log4perl ':easy';
-
-use Moo;
-
-has 'request',
-  is => 'ro',
-  required => 1;
-
-has 'headers',
-  is => 'ro',
-  lazy => 1,
-  builder => sub {
-    return $_[0]->request->headers()
-  };
-
-has 'result',
-  is => 'ro',
-  lazy => 1,
-  builder => sub {
-    $_[0]->request->result;
-  };
-
-has 'results',
-  is => 'ro',
-  lazy => 1,
-  builder => sub {
-    my $req = $_[0]->request;
-    my $results = [
-      $req->result(),
-      (defined $req->paramsout() ? $req->paramsout() : ())
-    ];
-    TRACE sub { Dumper $results};
-    return $results;
-  };
 
 1;
 
@@ -218,14 +252,16 @@ This module is quite unstable, as it's early in its development cycle. I'm
 trying to avoid breaking too much, but until it hits 1.0, there is a risk of
 breakage.
 
-=head1 SYNOPSIS
+There are also lots of unimplemented API calls in some of the libraries. This
+is because I don't currently have a use-case for them so it's not clear what
+the return types or testing mechanisms should be. Pull requests are welcome!
 
-WWW::SFDC provides a set of packages which you can use to build useful
-interactions with Salesforce.com's many APIs. Initially it was intended
-for the construction of powerful and flexible deployment tools.
+=head1 SYNOPSIS
 
     use WWW::SFDC;
 
+    # Create session object. This will cache your credentials for use in
+    # all subsequent API calls.
     my $session = WWW::SFDC->new(
       username => $username,
       password => $password,
@@ -233,54 +269,71 @@ for the construction of powerful and flexible deployment tools.
       apiVersion => apiversion
     );
 
-    # This will do queryMore until it's got everything
-    my @queryResult = $session->query('SELECT Id FROM Account');
+    # Access API calls by specifying which API you're calling and the
+    # method you want to use, for instance:
+    $session->Apex->executeAnonymous('system.debug(1);');
+    $session->Partner->query('SELECT Id FROM Account LIMIT 10');
 
-=head1 CONTENTS
+=head1 OVERVIEW
+
+WWW::SFDC provides a set of packages which you can use to build useful
+interactions with Salesforce.com's many APIs. Initially it was intended for
+the construction of powerful and flexible deployment tools.
+
+The idea is to provide a 'do what I mean' interface which allows the full
+power of all of the SOAP APIs whilst abstracting away the details of status
+checking and extracting results.
+
+=head2 Contents
 
 =over 4
 
 =item WWW::SFDC
 
-Provides the lowest-level interaction with SOAP::Lite. Handles the
-SessionID and renews it when necessary.
+Provides the lowest-level interaction with SOAP::Lite. Handles the SessionID
+and renews it when necessary.
 
-=item WWW::SFDC::Constants
+You should not need to interact with WWW::SFDC itself beyond constructing and
+calling API modules - the methods in this class are in general plumbing.
+
+=item L<WWW::SFDC::Constants>
 
 Retrieves and caches the metadata objects as returned by DescribeMetadata for
 use when trying to interact with the filesystem etc.
 
-=item WWW::SFDC::Manifest
+=item L<WWW::SFDC::Manifest>
 
-Stores and manipulates lists of metadata for retrieving and deploying
-to and from Salesforce.com.
+Stores and manipulates lists of metadata for retrieving and deploying to and
+from Salesforce.com.
 
-=item WWW::SFDC::Metadata
+=item L<WWW::SFDC::Metadata>
 
 Wraps the Metadata API.
 
-=item WWW::SFDC::Partner
+=item L<WWW::SFDC::Partner>
 
 Wraps the Partner API.
 
-=item WWW::SFDC::Tooling
+=item L<WWW::SFDC::Tooling>
 
 Wraps the Tooling API.
 
-=item WWW::SFDC::Zip
+=item L<WWW::SFDC::Zip>
 
-Provides utilities for creating and extracting base-64 encoded zip
-files for Salesforce.com retrievals and deployments.
+Provides utilities for creating and extracting base-64 encoded zip files for
+Salesforce.com retrievals and deployments.
 
 =back
 
 =head1 METADATA API EXAMPLES
 
-The following provides a starting point for a simple retrieval tool.
-Notice that after the initial setup of WWW::SFDC the login
-credentials are cached. In this example, you'd use
-_retrieveTimeMetadataChanges to remove files you didn't want to track,
-change sandbox outbound message endpoints to production, or similar.
+=head2 Retrieval of metadata
+
+The following provides a starting point for a simple retrieval tool. Notice
+that after the initial setup of WWW::SFDC the login credentials are cached. In
+this example, you'd use _retrieveTimeMetadataChanges to remove files you
+didn't want to track, change sandbox outbound message endpoints to production,
+or similar.
 
 Notice that I've tried to keep the manifest interface as fluent as possible -
 every method which doesn't have an obvious return value returns $self.
@@ -322,6 +375,8 @@ every method which doesn't have an obvious return value returns $self.
       'src/',
       $session->Metadata->retrieveMetadata($manifest->manifest()),
       \&_retrieveTimeMetadataChanges;
+
+=head2 Deployment
 
 Here's a similar example for deployments. You'll want to construct
 @filesToDeploy and $deployOptions context-sensitively!
@@ -374,8 +429,15 @@ on a new sandbox, you might do something like this:
     );
 
     my @users = (
-      {User => alexander.brett, Email => alex@example.com, Profile => $profileId},
-      {User => another.user, Email => a.n.other@example.com, Profile => $profileId},
+      {
+        User => 'alexander.brett',
+        Email => 'alex@example.com',
+        Profile => $profileId
+      }, {
+        User => 'another.user',
+        Email => 'a.n.other@example.com',
+        Profile => $profileId
+      },
     );
 
     $client->Partner->update(
@@ -389,16 +451,19 @@ on a new sandbox, you might do something like this:
         }
       } $client->Partner->query(
           "SELECT Id, Username FROM User WHERE "
-          . (join " OR ", map {"Username LIKE '%$_%'"} map {$_->{User}} @inputUsers)
+          . (
+            join " OR ",
+              map {"Username LIKE '%$_%'"} map {$_->{User}} @inputUsers
+          )
         )
     );
 
 =head1 SEE ALSO
 
-=head2 App::SFDC
+=head2 L<App::SFDC>
 
-App::SFDC uses WWW::SFDC to provide a command-line application for interacting with
-Salesforce.com
+App::SFDC uses WWW::SFDC to provide a command-line application for interacting
+with Salesforce.com
 
 =head2 ALTERNATIVES
 
@@ -406,20 +471,20 @@ Both of these modules offer more straightforward, comprehensive and mature
 wrappers around the Partner API than this module does at the moment. If all of
 your requirements can be fulfilled by that, you may be better off using them.
 
-This module is designed for use in deployment applications, or when you want to
-juggle multiple APIs to provide complicated functionality.
+This module is designed for use in deployment applications, or when you want
+to juggle multiple APIs to provide complicated functionality.
 
 =over 4
 
-=item WWW::Salesforce
+=item L<WWW::Salesforce>
 
-=item Salesforce
+=item L<Salesforce>
 
 =back
 
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -429,5 +494,5 @@ You can find documentation for this module with the perldoc command.
     perldoc WWW::SFDC::Metadata
     ...
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>
 

@@ -22,7 +22,7 @@ use MIME::Base64;
 
     makezip $srcDirectory, @listOfFiles;
 
-    unzip $destDirectory, $base64encodedzipfile, &unzipTimeChanges
+    unzip $destDirectory, $base64encodedzipfile, &unzipTimeChanges;
 
 =head1 EXPORT
 
@@ -38,10 +38,9 @@ BEGIN {
 
 =func unzip $destFolder, $dataString, $callback
 
-Takes a some base64 $data and turns it into a file tree, starting
-at $dest. It does this by turning unpackaged/ into $dest/ whilst
-unzipping, so the data needs to come from an above-defined retrieve
-request.
+Takes a some base64 $data and turns it into a file tree, starting at $dest. It
+does this by turning unpackaged/ into $dest/ whilst unzipping, so the data
+needs to come from an above-defined retrieve request.
 
 Whilst each file is in memory, this function calls:
 
@@ -156,7 +155,7 @@ __END__
 
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -164,4 +163,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Zip
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

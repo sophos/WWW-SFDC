@@ -22,6 +22,7 @@ has 'uri',
     default=> "http://soap.sforce.com/2006/08/apex";
 
 sub _extractURL {
+    # NB that the // are part of the pattern
     return $_[1]->{serverUrl} =~ s{/u/}{/s/}r;
 }
 
