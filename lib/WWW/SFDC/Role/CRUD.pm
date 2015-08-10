@@ -230,9 +230,15 @@ method retrieve (@_) {
 
 __END__
 
+=head1 DESCRIPTION
+
+WWW::SFDC::Role::CRUD provides standard SObject manipulation methods which are
+shared between the Partner and Tooling APIs.
+
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at
+L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -240,4 +246,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Role::CRUD
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

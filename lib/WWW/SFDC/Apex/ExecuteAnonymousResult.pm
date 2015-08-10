@@ -81,3 +81,16 @@ __END__
 This module acts as a container for the result of an executeAnonymous request.
 It's overloaded so that used as a boolean, it acts as the success value of the
 call.
+
+
+=head1 BUGS
+
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc WWW::SFDC::Apex::ExecuteAnonymousResult
+
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

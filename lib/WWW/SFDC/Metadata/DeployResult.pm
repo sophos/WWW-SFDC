@@ -15,24 +15,58 @@ use overload
 
 use Moo;
 
+=attr id
+
+The deployment ID. When stringified, this is the object's value.
+
+=cut
+
 has 'id',
   is => 'ro',
   lazy => 1,
   builder => sub {return $_[0]->result->{id}};
+
+=attr success
+
+A boolean representing whether the deployment's status is 'Succeeded'.
+
+=cut
 
 has 'success',
   is => 'ro',
   lazy => 1,
   builder => sub {return $_[0]->result->{status} eq 'Succeeded'};
 
+=attr complete
+
+A boolean representing whether the deployment is in any complete status,
+successful or otherwise.
+
+=cut
+
 has 'complete',
   is => 'ro',
   lazy => 1,
-  builder => sub {return $_[0]->result->{status} !~ /Queued|Pending|InProgress/;};
+  builder => sub {
+    return $_[0]->result->{status} !~ /Queued|Pending|InProgress/;
+  };
+
+=attr result
+
+The 'result' element of a SOAP::SOM returned from a Salesforce Deploy call.
+This is used for the generation of all other attributes.
+
+=cut
 
 has 'result',
   is => 'ro',
   required => 1;
+
+=attr testFailures
+
+An arrayref of testResults, sorted by class name and method name.
+
+=cut
 
 has 'testFailures',
   is => 'ro',
@@ -50,6 +84,12 @@ has 'testFailures',
       ]
       : [$self->result->{details}->{runTestResult}->{failures}]
   };
+
+=attr testFailures
+
+An arrayref of failed components, sorted by file name and component name.
+
+=cut
 
 has 'componentFailures',
   is => 'ro',
@@ -78,6 +118,14 @@ sub BUILD {
     );
 }
 
+=method testFailuresSince($previous)
+
+Here, $previous is another WWW::SFDC::Metadata::DeployResult. This attribute
+holds all failures that are new in this result compared to the previous one.
+This is useful for providing a running commentary on what's failed so far.
+
+=cut
+
 sub testFailuresSince {
   my ($self, $previous) = @_;
   return ()
@@ -104,6 +152,14 @@ sub testFailuresSince {
 
   return @newResults
 }
+
+=method componentFailuresSince($previous)
+
+Here, $previous is another WWW::SFDC::Metadata::DeployResult. This attribute
+holds all failures that are new in this result compared to the previous one.
+This is useful for providing a running commentary on what's failed so far.
+
+=cut
 
 sub componentFailuresSince {
   my ($self, $previous) = @_;
@@ -132,3 +188,29 @@ sub componentFailuresSince {
 }
 
 1;
+
+__END__
+
+=head1 DESCRIPTION
+
+L<WWW::SFDC::Metadata>->Deploy returns a DeployResult in order to provide rich
+ability for handling different categories of errors, including categorised test
+results and component failures.
+
+It is overloaded such that when stringified it returns the deployment ID,
+because that's the most important element, and it enables chaining with
+DeployRecentValidation.
+
+You probably will only consume this, rather than explicitly creating it.
+
+=head1 BUGS
+
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc WWW::SFDC::Metadata::DeployResult
+
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

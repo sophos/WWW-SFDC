@@ -10,6 +10,63 @@ use warnings;
 use Moo::Role;
 use Module::Loaded;
 
+requires qw'_extractURL';
+
+=attr session
+
+This is a WWW::SFDC object, and is required when this module is constructed.
+
+=cut
+
+has 'session',
+  is => 'ro',
+  required => 1;
+
+=attr url
+
+The API endpoint URL for the consuming module. For instance, for the metadata
+API, this will contain C</m/>, and for the tooling API will contain C</T/>.
+This is constructed using the _extractURL method in the consuming object,
+which is required.
+
+=cut
+
+has 'url',
+  is => 'ro',
+  lazy => 1,
+  builder => '_buildURL';
+
+sub _buildURL {
+  my $self = shift;
+  return $self->_extractURL($self->session->loginResult());
+}
+
+=method _call
+
+The consuming class can use C<$self->_call(@params);> - this will handle
+calling the underlying session with the correct URI and URL. The URI is
+defined in the  consuming class.
+
+=cut
+
+sub _call {
+  my $self = shift;
+  return $self->session->call(
+    $self->url(),
+    $self->uri(),
+    @_
+  );
+}
+
+sub _sleep {
+  my $self = shift;
+  sleep $self->session->pollInterval;
+}
+
+1;
+
+__END__
+
 =head1 SYNOPSIS
 
     package Example;
@@ -36,45 +93,9 @@ use Module::Loaded;
 
     1;
 
-=cut
-
-requires qw'_extractURL';
-
-has 'session',
-  is => 'ro',
-  required => 1;
-
-has 'url',
-  is => 'ro',
-  lazy => 1,
-  builder => '_buildURL';
-
-sub _buildURL {
-  my $self = shift;
-  return $self->_extractURL($self->session->loginResult());
-}
-
-sub _call {
-  my $self = shift;
-  return $self->session->call(
-    $self->url(),
-    $self->uri(),
-    @_
-  );
-}
-
-sub _sleep {
-  my $self = shift;
-  sleep $self->session->pollInterval;
-}
-
-1;
-
-__END__
-
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -82,4 +103,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Role::Session
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>
