@@ -85,29 +85,29 @@ method _splitLine ($line) {
   # we're using '' in lots of regexes to avoid escaping / all over the place
   # This method could probably be cleaned up by using File::Spec or similar.
 
-  $line =~ s'.*src/'';  # Bin anything up to and including src/.
+  $line =~ s".*src/"";  # Bin anything up to and including src/.
   $line =~ s/[\n\r]//g; # Bin any newline characters.
-  $line =~ s'\\'/'g;    # Turn \ into / for cross-platform paths.
+  $line =~ s"\\"/"g;    # Turn \ into / for cross-platform paths.
 
   my %result = (extension => "");
 
-  ($result{type}) = $line =~ m'^(\w+)/' or LOGDIE "Line $line doesn't have a type.";
+  ($result{type}) = $line =~ m"^(\w+)/" or LOGDIE "Line $line doesn't have a type.";
 
-  $result{folder} = $1 if $line =~ m'/(\w+)/';
+  $result{folder} = $1 if $line =~ m"/(\w+)/";
 
   my $extension = (grep {$_ eq $result{type}} keys $self->constants->TYPES)
     ? $self->constants->getEnding($result{type})
     : undef;
 
-  if ($line =~ m'/(\w+)-meta.xml') {
+  if ($line =~ m"/(\w+)-meta.xml") {
     $result{name} = $1
 
   } elsif (!defined $extension) {
-    ($result{name}) = $line =~ m'/([^/]*?)(-meta\.xml)?$';
+    ($result{name}) = $line =~ m"/([^/]*?)(-meta\.xml)?$";
     # This is because components get passed back from listDeletions with : replacing .
-    $result{name} =~ s':'.';
+    $result{name} =~ s":".";
 
-  } elsif ($line =~ m'/([^/]*?)($extension)(-meta\.xml)?$') {
+  } elsif ($line =~ m"/([^/]*?)($extension)(-meta\.xml)?$") {
     $result{name} = $1;
     $result{extension} = $2;
   }
