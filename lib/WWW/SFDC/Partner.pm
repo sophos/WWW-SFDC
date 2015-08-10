@@ -16,22 +16,6 @@ use SOAP::Lite;
 use Moo;
 with "WWW::SFDC::Role::SessionConsumer", "WWW::SFDC::Role::CRUD";
 
-=head1 SYNOPSIS
-
-    my $client =  WWW::SFDC->new(
-        username => "foo",
-        password => "bar",
-        url      => "url",
-    );
-
-    my @objects = $client->Partner->query("SELECT field, ID FROM Object__c WHERE conditions");
-
-    $client->update(
-        map { $_->{field} =~ s/baz/bat/ } @objects
-    );
-
-=cut
-
 has 'uri',
   is => 'ro',
   default => "urn:partner.soap.sforce.com";
@@ -81,6 +65,24 @@ method setPassword (:$Id!, :$Password!){
 1;
 
 __END__
+
+
+=head1 SYNOPSIS
+
+    my $client =  WWW::SFDC->new(
+        username => "foo",
+        password => "bar",
+        url      => "url",
+    );
+
+    my @objects = $client->Partner->query("SELECT field, ID FROM Object__c WHERE conditions");
+
+    $client->update(
+        map { $_->{field} =~ s/baz/bat/ } @objects
+    );
+
+
+This module consumes L<WWW::SFDC::Role::CRUD>.
 
 =head1 BUGS
 

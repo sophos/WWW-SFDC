@@ -23,6 +23,15 @@ has 'uri',
 
 sub _extractURL { return $_[1]->{serverUrl} }
 
+=attr TYPES
+
+A hashref containing the result of the metadataObjects member of a
+describeMetadata result. If this is populated, Constants will not send any API
+calls, so setting this in the constructor with a cached version provides
+offline functionality. If you specify a session, this attribute is optional.
+
+=cut
+
 has 'TYPES',
   is => 'ro',
   lazy => 1,
@@ -35,7 +44,7 @@ has 'TYPES',
     }
   };
 
-has 'subcomponents',
+has '_subcomponents',
   is => 'ro',
   lazy => 1,
   default => sub {
@@ -98,7 +107,7 @@ sub getDiskName {
 
 sub getName {
   my ($self, $type) = @_;
-  return $type if grep {/$type/} @{$self->subcomponents};
+  return $type if grep {/$type/} @{$self->_subcomponents};
   LOGDIE "$type is not a recognised type" unless $self->TYPES->{$type};
   return $self->TYPES->{$type}->{xmlName};
 }
@@ -109,7 +118,24 @@ sub getName {
 
 sub getSubcomponents {
   my $self = shift;
-  return @{$self->subcomponents};
+  return @{$self->_subcomponents};
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+Provides the methods required for translating on-disk file names and component
+names to forms that the metadata API recognises, and vice-versa.
+
+  WWW::SFDC::Constants->new(
+    session => $session
+  );
+
+OR
+
+  WWW::SFDC::Constants->new(
+    TYPES => $types
+  );

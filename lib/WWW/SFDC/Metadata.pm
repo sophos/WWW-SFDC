@@ -17,32 +17,6 @@ use WWW::SFDC::Metadata::DeployResult;
 use Moo;
 with "WWW::SFDC::Role::SessionConsumer";
 
-=head1 SYNOPSIS
-
- my $client = WWW::SFDC->new(
-   username => 'foo',
-   password => 'bar',
-   url => 'https://login.salesforce.com'
- )->Metadata;
-
- my $manifest = $client->listMetadata(
-   {type => "CustomObject"},
-   {type => "Report", folder => "FooReports"}
- );
-
- my $base64zipstring = $client->retrieveMetadata(
-   $manifest
- );
-
- $client->deployMetadata(
-   $base64zipstring,
-   {checkOnly => 'true'}
- );
-
-For more in-depth examples, see t/WWW/SFDC/Metadata.t
-
-=cut
-
 has 'uri',
   is => 'ro',
   default => "http://soap.sforce.com/2006/04/metadata";
@@ -51,12 +25,14 @@ sub _extractURL {
   return $_[1]->{metadataServerUrl};
 }
 
-=method listMetadata @queries
+=method listMetadata(@queries)
 
 Accepts a list of types and folders, such as
 
+$session->Metadata->listMetadata(
    {type => "CustomObject"},
    {type => "Report", folder => "FooReports"}
+);
 
 and generates a list of file names suitable for turning into a WWW::SFDC::Manifest.
 
@@ -77,7 +53,7 @@ method listMetadata {
   return @result;
 }
 
-=method retrieveMetadata $manifest
+=method retrieveMetadata($manifest)
 
 Sets up a retrieval from then checks it until done. Returns the
 same data as checkRetrieval. Requires a manifest of the form:
@@ -87,6 +63,10 @@ same data as checkRetrieval. Requires a manifest of the form:
    "CustomObject" => ["*", "Account", "User", 'Opportunity"],
    "Profile" => ["*"]
   };
+
+This method handles starting the retrieval, and polls until it completes, then
+returns the a string which is the base64 encoded .zip file containing the
+data.
 
 =cut
 
@@ -226,6 +206,13 @@ method deployRecentValidation ($id) {
   );
 }
 
+=method describeMetadata
+
+Returns a describeMetadataResult hashref as specified by Salesforce.com.
+L<WWW::SFDC::Constants> consumes this object to provide utility methods.
+
+=cut
+
 method describeMetadata {
   return $self->_call(
     'describeMetadata',
@@ -237,9 +224,33 @@ method describeMetadata {
 
 __END__
 
+=head1 SYNOPSIS
+
+ my $client = WWW::SFDC->new(
+   username => 'foo',
+   password => 'bar',
+   url => 'https://login.salesforce.com'
+ )->Metadata;
+
+ my $manifest = $client->listMetadata(
+   {type => "CustomObject"},
+   {type => "Report", folder => "FooReports"}
+ );
+
+ my $base64zipstring = $client->retrieveMetadata(
+   $manifest
+ );
+
+ $client->deployMetadata(
+   $base64zipstring,
+   {checkOnly => 'true'}
+ );
+
+For more in-depth examples, see t/WWW/SFDC/Metadata.t
+
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -247,5 +258,5 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Metadata
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>
 

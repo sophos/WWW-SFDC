@@ -16,27 +16,64 @@ use XML::Parser;
 
 use Moo;
 
-has 'apiVersion', is => 'rw', default => '34';
-has 'constants', is => 'ro', required => 1;
-has 'isDeletion', is => 'ro';
-has 'manifest', is => 'rw', default => sub { {} };
+=attr apiVersion
 
-=head1 SYNOPSIS
-
-This module is used to read SFDC manifests from disk, add files to them,
-and get a structure suitable for passing into WWW::SFDC::Metadata functions.
-
-    my $SFDC = WWW::SFDC->new(...);
-    my $Manifest = WWW::SFDC::Manifest
-        ->new(constants => $SFDC->Constants)
-        ->readFromFile("filename")
-        ->addList()
-        ->add({Document => ["bar/foo.png"]});
-
-    my $HashRef = $Manifest->manifest();
-    my $XMLString = $Manifest->getXML();
+This apiVersion will be written to the manifest .xml file - defaults to 34.
+Beware that the API version specified in a manifest file overrides the API
+version specified in the endpoint URL.
 
 =cut
+
+has 'apiVersion', is => 'rw', default => '34';
+
+=attr constants
+
+A L<WWW::SFDC::Constants> object. If you're working with a session, you'll
+need to pass in the constants from the session. If you're trying to work
+offline, you'll need to create a new Constants object explicitly.
+
+=cut
+
+has 'constants', is => 'ro', required => 1;
+
+=attr isDeletions
+
+If set, the manifest will be constructed slightly differently: when you add a
+file inside a folder, such as src/email/myfolder/mytemplate.email, normally
+the manifest will include both the folder and the template. However, when
+deleting, the folder will not be included unless the -meta file is explicitly
+specified, i.e. src/email/myfolder-meta.xml. This is because deleting the
+folder will delete all members of that folder, and that's not normally the
+desired effect.
+
+=cut
+
+has 'isDeletion', is => 'ro';
+
+=attr manifest
+
+The underlying hash for the Manifest object. This hashref can be passed into a
+call to retrieve(), and a WWW::SFDC::Manifest can also be created with this
+prepopulated, if you already know what it should contain.
+
+This hashref will look like
+
+  {
+    classes => [
+      'myclass',
+      ...
+    ],
+    email => [
+      'myfolder',
+      'myfolder/mytemplate',
+      ...
+    ]
+    ...
+  }
+
+=cut
+
+has 'manifest', is => 'rw', default => sub { {} };
 
 # _splitLine($line)
 
@@ -45,33 +82,37 @@ and get a structure suitable for passing into WWW::SFDC::Metadata functions.
 # file extension, excluding -meta.xml.
 
 method _splitLine ($line) {
-  # clean up the line
-  $line =~ s/.*src\///;
-  $line =~ s/[\n\r]//g;
+  # we're using '' in lots of regexes to avoid escaping / all over the place
+  # This method could probably be cleaned up by using File::Spec or similar.
 
-  my %result = ("extension" => "");
+  $line =~ s'.*src/'';  # Bin anything up to and including src/.
+  $line =~ s/[\n\r]//g; # Bin any newline characters.
+  $line =~ s'\\'/'g;    # Turn \ into / for cross-platform paths.
 
-  ($result{"type"}) = $line =~ /^(\w+)\//
-    or LOGDIE "Line $line doesn't have a type.";
-  $result{"folder"} = $1
-    if $line =~ /\/(\w+)\//;
+  my %result = (extension => "");
+
+  ($result{type}) = $line =~ m'^(\w+)/' or LOGDIE "Line $line doesn't have a type.";
+
+  $result{folder} = $1 if $line =~ m'/(\w+)/';
 
   my $extension = (grep {$_ eq $result{type}} keys $self->constants->TYPES)
-    ? $self->constants->getEnding($result{"type"})
+    ? $self->constants->getEnding($result{type})
     : undef;
 
-  if ($line =~ /\/(\w+)-meta.xml/) {
-    $result{"name"} = $1
+  if ($line =~ m'/(\w+)-meta.xml') {
+    $result{name} = $1
+
   } elsif (!defined $extension) {
-    ($result{"name"}) = $line =~ /\/([^\/]*?)(-meta\.xml)?$/;
+    ($result{name}) = $line =~ m'/([^/]*?)(-meta\.xml)?$';
     # This is because components get passed back from listDeletions with : replacing .
-    $result{"name"} =~ s/:/./;
-  } elsif ($line =~ /\/([^\/]*?)($extension)(-meta\.xml)?$/) {
-    $result{"name"} = $1;
-    $result{"extension"} = $2;
+    $result{name} =~ s':'.';
+
+  } elsif ($line =~ m'/([^/]*?)($extension)(-meta\.xml)?$') {
+    $result{name} = $1;
+    $result{extension} = $2;
   }
 
-  LOGDIE "Line $line doesn't have a name." unless $result{"name"};
+  LOGDIE "Line $line doesn't have a name." unless $result{name};
 
   return \%result;
 }
@@ -93,16 +134,24 @@ method _getFilesForLine ($line?) {
 
   return map {"$split{type}/$_"} (
     $split{"folder"}
-    ?(
-      "$split{folder}-meta.xml",
-      "$split{folder}/$split{name}$split{extension}",
-      ($self->constants->needsMetaFile($split{"type"}) ? "$split{folder}/$split{name}$split{extension}-meta.xml" : ())
-     )
-    :(
-      "$split{name}$split{extension}",
-      ($self->constants->needsMetaFile($split{"type"}) ? "$split{name}$split{extension}-meta.xml" : ())
-     )
-   )
+      ? (
+        "$split{folder}-meta.xml",
+        "$split{folder}/$split{name}$split{extension}",
+        (
+          $self->constants->needsMetaFile($split{"type"})
+            ? "$split{folder}/$split{name}$split{extension}-meta.xml"
+            : ()
+        )
+      )
+      : (
+        "$split{name}$split{extension}",
+        (
+          $self->constants->needsMetaFile($split{"type"})
+            ? "$split{name}$split{extension}-meta.xml"
+            : ()
+        )
+      )
+  )
 }
 
 
@@ -192,6 +241,22 @@ returns it.
 =cut
 
 method readFromFile ($fileName) {
+  # XML::Parser returns a list which consists of
+  #
+  # (
+  #   $attributes,
+  #   $childNodeName, $childNodeElements,
+  #   $childNodeName, $childNodeElements,
+  #   ...
+  # )
+  #
+  # Where each $childNodeElements looks like this too (ie recursive).
+  #
+  # We use splice to remove the $attributes which we assume will be empty,
+  # then use pairmap and pairgrep to find the right nodes to operate on and
+  # transform the data. Finally, we use reduce (from List::Util) to add each
+  # resulting hashref to the current manifest.
+
   return reduce {$a->add($b)} $self, map {+{
     do {
       pairmap {$b->[2]} pairfirst {$a eq 'name'} @$_
@@ -225,6 +290,7 @@ Returns the XML representation for this manifest.
 =cut
 
 method getXML {
+  # Ultra-low-tech.
   return join "", (
     "<?xml version='1.0' encoding='UTF-8'?>",
     "<Package xmlns='http://soap.sforce.com/2006/04/metadata'>",
@@ -240,14 +306,28 @@ method getXML {
    );
 }
 
-
 1;
 
 __END__
 
+=head1 SYNOPSIS
+
+This module is used to read SFDC manifests from disk, add files to them,
+and get a structure suitable for passing into WWW::SFDC::Metadata functions.
+
+    my $SFDC = WWW::SFDC->new(...);
+    my $Manifest = WWW::SFDC::Manifest
+        ->new(constants => $SFDC->Constants)
+        ->readFromFile("filename")
+        ->addList()
+        ->add({Document => ["bar/foo.png"]});
+
+    my $HashRef = $Manifest->manifest();
+    my $XMLString = $Manifest->getXML();
+
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -255,4 +335,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Manifest
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>

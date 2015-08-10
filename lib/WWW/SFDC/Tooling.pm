@@ -13,18 +13,6 @@ use Scalar::Util 'blessed';
 use Moo;
 with 'WWW::SFDC::Role::SessionConsumer', 'WWW::SFDC::Role::CRUD';
 
-=head1 SYNOPSIS
-
-   my $result = WWW::SFDC->new(
-    username => $USER,
-    password => $PASS,
-    url => $URL
-   )->Tooling->executeAnonymous("System.debug(1);");
-
-Note that $URL is the _login_ URL, not the Tooling API endpoint URL - which gets calculated internally.
-
-=cut
-
 has 'uri',
   is => 'ro',
   default => 'urn:tooling.soap.sforce.com';
@@ -32,10 +20,6 @@ has 'uri',
 sub _extractURL {
   return $_[1]->{serverUrl} =~ s{/u/}{/T/}r;
 }
-
-=method create
-
-=cut
 
 sub _prepareSObjects {
   my $self = shift;
@@ -66,6 +50,8 @@ sub _prepareSObjects {
 
 =method describeGlobal
 
+Unimplemented
+
 =cut
 
 sub describeGlobal {
@@ -73,6 +59,8 @@ sub describeGlobal {
 }
 
 =method describeSObjects
+
+Unimplemented
 
 =cut
 
@@ -159,9 +147,21 @@ sub runTestsAsynchronous {
 
 __END__
 
+=head1 SYNOPSIS
+
+   my $result = WWW::SFDC->new(
+    username => $USER,
+    password => $PASS,
+    url => $URL
+   )->Tooling->executeAnonymous("System.debug(1);");
+
+Note that $URL is the _login_ URL, not the Tooling API endpoint URL - which gets calculated internally.
+
+This module consumes L<WWW::SFDC::Role::CRUD>.
+
 =head1 BUGS
 
-Please report any bugs or feature requests at L<https://github.com/alexander-brett/WWW-SFDC/issues>.
+Please report any bugs or feature requests at L<https://github.com/sophos/WWW-SFDC/issues>.
 
 =head1 SUPPORT
 
@@ -169,4 +169,4 @@ You can find documentation for this module with the perldoc command.
 
     perldoc WWW::SFDC::Tooling
 
-You can also look for information at L<https://github.com/alexander-brett/WWW-SFDC>
+You can also look for information at L<https://github.com/sophos/WWW-SFDC>
