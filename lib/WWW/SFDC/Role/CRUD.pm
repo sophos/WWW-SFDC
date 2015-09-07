@@ -226,6 +226,49 @@ method retrieve (@_) {
     )->results};
 }
 
+
+=method describeGlobal
+
+Lists SObjects available through this API.
+
+=cut
+
+
+## see:
+# http://stackoverflow.com/questions/7070553/soapdatabuilder-remove-xsinil-true-when-no-value-provided
+# http://mkweb.bcgsc.ca/intranet/perlbook/perlnut/ch14_02.htm#INDEX-1888
+# http://search.cpan.org/~byrne/SOAP-Lite-0.65_5/lib/SOAP/Serializer.pm#as_TypeName_SUBROUTINE_REQUIREMENTS
+
+method SOAP::Serializer::as_nonil ($value, $name, $type, $attr) {
+    delete $attr->{'xsi:nil'};
+    return [ $name, $attr, $value ];
+}
+
+method describeGlobal () {
+
+  return $self->_call(
+    SOAP::Data->name("describeGlobal")
+      ->uri($self->uri)
+      ->type('nonil')
+  )->result;
+}
+
+=method describeSObjects
+
+Unimplemented
+
+=cut
+
+method describeSObjects (@names) {
+
+  return map {
+    $self->_call(
+      'describeSObjects',
+      @$_
+    )->result;
+  } spart 100, @names;
+
+}
 1;
 
 __END__

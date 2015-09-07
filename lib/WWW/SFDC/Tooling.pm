@@ -48,26 +48,6 @@ sub _prepareSObjects {
     } @_;
 }
 
-=method describeGlobal
-
-Unimplemented
-
-=cut
-
-sub describeGlobal {
-  ...
-}
-
-=method describeSObjects
-
-Unimplemented
-
-=cut
-
-sub describeSObjects {
-  ...
-}
-
 =method executeAnonymous
 
     $client->Tooling->executeAnonymous("system.debug(1);")
