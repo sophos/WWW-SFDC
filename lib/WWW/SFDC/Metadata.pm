@@ -38,7 +38,7 @@ and generates a list of file names suitable for turning into a WWW::SFDC::Manife
 
 =cut
 
-method listMetadata {
+method listMetadata (@_) {
 
   INFO "Listing Metadata...\t";
 
