@@ -183,7 +183,7 @@ method _doCall ($attempts, $URL, $NS, $method, @params) {
     # Looping by recursion makes it easier to write this bit.
     INFO "$method failed: $@";
     INFO "Retrying ($attempts attempts remaining)";
-    return $self->_doCall($attempts-1, $URL, $NS, @params);
+    return $self->_doCall($attempts-1, $URL, $NS, $method, @params);
 
   } else {
     WWW::SFDC::CallException->throw(
