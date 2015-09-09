@@ -58,6 +58,23 @@ has '_subcomponents',
     } values $self->TYPES];
   };
 
+  
+my %SUBCOMPONENTS = (
+  actionOverrides => 'ActionOverride',
+  alerts => 'WorkflowAlert',
+  businessProcesses => 'BusinessProcess',
+  fieldSets => 'FieldSet',
+  fieldUpdates => 'WorkflowFieldUpdate',
+  fields => 'CustomField',
+  listViews => 'ListView',
+  outboundMessages => 'WorkflowOutboundMessage',
+  recordTypes => 'RecordType',
+  rules => 'WorkflowRule',
+  tasks => 'WorkflowTask',
+  validationRules => 'ValidationRule',
+  webLinks => 'WebLink'
+);
+    
 =method needsMetaFile
 
 =cut
@@ -103,22 +120,37 @@ sub getDiskName {
 
 =method getName
 
+When provided with the disk (folder) name for a component type or the node name of a subcomponent,
+provides the Metadata API name for that type.
+
 =cut
 
 sub getName {
   my ($self, $type) = @_;
-  return $type if grep {/$type/} @{$self->_subcomponents};
+  return $SUBCOMPONENTS{$type} if grep {/$type/} keys %SUBCOMPONENTS;
   LOGDIE "$type is not a recognised type" unless $self->TYPES->{$type};
   return $self->TYPES->{$type}->{xmlName};
 }
 
 =method getSubcomponents
 
+Returns a list of API names of subcomponents
+
 =cut
 
 sub getSubcomponents {
   my $self = shift;
   return @{$self->_subcomponents};
+}
+
+=method getXMLSubcomponents
+
+Returns a list of XML node names for subcomponents.
+
+=cut
+
+sub getXMLSubcomponents {
+  return keys %SUBCOMPONENTS;
 }
 
 1;
