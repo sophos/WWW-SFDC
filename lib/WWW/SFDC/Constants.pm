@@ -134,24 +134,13 @@ sub getName {
   return $self->TYPES->{$type}->{xmlName};
 }
 
-=method getSubcomponents
-
-Returns a list of API names of subcomponents
-
-=cut
-
-sub getSubcomponents {
-  my $self = shift;
-  return @{$self->_subcomponents};
-}
-
-=method getXMLSubcomponents
+=method getSubcomponentsXMLNames
 
 Returns a list of XML node names for subcomponents.
 
 =cut
 
-sub getXMLSubcomponents {
+sub getSubcomponentsXMLNames {
   return keys %_SUBCOMPONENTS;
 }
 
