@@ -59,13 +59,15 @@ has '_subcomponents',
   };
 
   
-my %SUBCOMPONENTS = (
+my %_SUBCOMPONENTS = (
   actionOverrides => 'ActionOverride',
   alerts => 'WorkflowAlert',
   businessProcesses => 'BusinessProcess',
   fieldSets => 'FieldSet',
   fieldUpdates => 'WorkflowFieldUpdate',
   fields => 'CustomField',
+  flowActions => 'WorkflowFlowAction',
+  labels => 'CustomLabel',
   listViews => 'ListView',
   outboundMessages => 'WorkflowOutboundMessage',
   recordTypes => 'RecordType',
@@ -127,7 +129,7 @@ provides the Metadata API name for that type.
 
 sub getName {
   my ($self, $type) = @_;
-  return $SUBCOMPONENTS{$type} if grep {/$type/} keys %SUBCOMPONENTS;
+  return $_SUBCOMPONENTS{$type} if grep {/$type/} keys %_SUBCOMPONENTS;
   LOGDIE "$type is not a recognised type" unless $self->TYPES->{$type};
   return $self->TYPES->{$type}->{xmlName};
 }
@@ -150,7 +152,7 @@ Returns a list of XML node names for subcomponents.
 =cut
 
 sub getXMLSubcomponents {
-  return keys %SUBCOMPONENTS;
+  return keys %_SUBCOMPONENTS;
 }
 
 1;
