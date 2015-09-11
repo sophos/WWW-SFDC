@@ -67,7 +67,6 @@ my %_SUBCOMPONENTS = (
   fieldUpdates => 'WorkflowFieldUpdate',
   fields => 'CustomField',
   flowActions => 'WorkflowFlowAction',
-  labels => 'CustomLabel',
   listViews => 'ListView',
   outboundMessages => 'WorkflowOutboundMessage',
   recordTypes => 'RecordType',
