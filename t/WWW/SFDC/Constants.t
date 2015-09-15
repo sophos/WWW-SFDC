@@ -32,7 +32,7 @@ sub test_using_client {
     'CustomObject',
     "objects/ should have API name CustomObject";
 
-  ok $constants->getSubcomponents() > 0,
+  ok $constants->getSubcomponentsXMLNames() > 0,
     "There should be multiple subcomponents";
 }
 
