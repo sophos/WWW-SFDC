@@ -164,7 +164,7 @@ method _doCall ($attempts, $URL, $NS, $method, @params) {
       # SOAP::Lite dies when there's a connection error; if there's an API
       # error it lives but $result->fault is set. This allows us to detect
       # network errors and retry.
-      SOAP::Lite
+      my $response = SOAP::Lite
         ->proxy($URL)
         ->readable(1)
         ->default_ns($NS)
@@ -175,8 +175,14 @@ method _doCall ($attempts, $URL, $NS, $method, @params) {
             "sessionId" => $self->loginResult->{"sessionId"}
           })->uri($NS)
         );
+
+        my $error = $response->faultstring;
+        WARN "SFDC response contains FaultString:  $error" if ($error);
+
+        return $response;
     }
-  ) {
+  ) 
+  {
     return $result;
 
   } elsif ($attempts) {

@@ -10,7 +10,9 @@ use warnings;
 use Data::Dumper;
 use Log::Log4perl ':easy';
 use Method::Signatures;
+
 use SOAP::Lite;
+#use SOAP::Lite +trace => 'all'; #USE THIS TO PRINT ALL XML REQUSET / RESPONSES. BEWARE IT WILL PRINT PASSWORDS IN PLAIN TEXT.
 
 use WWW::SFDC::Metadata::DeployResult;
 
@@ -214,10 +216,15 @@ L<WWW::SFDC::Constants> consumes this object to provide utility methods.
 =cut
 
 method describeMetadata {
-  return $self->_call(
+  my $result = $self->_call(
     'describeMetadata',
     SOAP::Data->name(apiVersion => $self->session->apiVersion)
    )->result;
+   
+   TRACE "describeMetadata results:";
+   TRACE Dumper($result);
+   
+   return $result;
 }
 
 1;
