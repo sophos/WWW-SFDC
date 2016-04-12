@@ -95,7 +95,7 @@ method _splitLine ($line) {
 
   $result{folder} = $1 if $line =~ m"/(\w+)/";
 
-  my $extension = (grep {$_ eq $result{type}} keys $self->constants->TYPES)
+  my $extension = (grep {$_ eq $result{type}} keys %{ $self->constants->TYPES })
     ? $self->constants->getEnding($result{type})
     : undef;
 
