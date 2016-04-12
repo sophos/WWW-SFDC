@@ -55,7 +55,7 @@ has '_subcomponents',
           ?  @{$_->{childXmlNames}}
           : $_->{childXmlNames}
         : ()
-    } values $self->TYPES];
+    } values %{ $self->TYPES }];
   };
 
   

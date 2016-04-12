@@ -20,7 +20,7 @@ More detailed documentation is found in each of the submodules and is also in
 perldoc format.
 
 The documentation for each release is also presented on CPAN, and can be read
-here: http://search.cpan.org/~abrett/WWW-SFDC/lib/WWW/SFDC.pm
+here: https://metacpan.org/pod/WWW::SFDC
 
 SUPPORT
 
