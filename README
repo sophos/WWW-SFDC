@@ -3,7 +3,7 @@ WWW-SFDC
 Provides wrappers around and utilities for the Salesforce.com Metadata,
 Partner and Tooling APIs.
 
-INSTALLATION
+# INSTALLATION
 
 Install using CPAN:
 
