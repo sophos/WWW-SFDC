@@ -7,7 +7,7 @@ Partner and Tooling APIs.
 
 Install using CPAN:
 ```perl
-    $ 'cpan WWW::SFDC'
+    $ cpan WWW::SFDC
 ```
 
 ## DOCUMENTATION
@@ -15,7 +15,7 @@ Install using CPAN:
 High-level documentation on this module is stored in lib/WWW/SFDC.pm and can
 be accessed with:
 
-    `perldoc WWW::SFDC`
+    perldoc WWW::SFDC
 
 More detailed documentation is found in each of the submodules and is also in
 perldoc format.
@@ -24,7 +24,7 @@ The documentation for each release is also presented on CPAN, and can be read [h
 
 ## SUPPORT
 
-You can also look for support [git](https://github.com/sophos/WWW-SFDC)
+You can also look for support from [git](https://github.com/sophos/WWW-SFDC)
 
 ## LICENSE
 
