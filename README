@@ -33,6 +33,6 @@ Please read LICENSE.
 HACKING
 
 Please read CONTRIBUTING for a license agreement. Then, fork this repo, make
-some changes, and write a pull request! If you don't want to install
+some changes and write a pull request! If you don't want to install
 Dist::Zilla, please feel free to hack on the package as it appears on CPAN,
 and submit a patch using a GitHub issue - we will merge it in as appropriate.
